@@ -5,6 +5,12 @@ set -e
 
 echo "Creating Neoverse Tutorial Project Structure..."
 
+# Check if neoverse-tutorial directory exists and remove it
+if [ -d "neoverse-tutorial" ]; then
+    echo "Existing neoverse-tutorial directory found. Removing..."
+    rm -rf neoverse-tutorial
+fi
+
 # Create main project directory
 mkdir -p neoverse-tutorial
 cd neoverse-tutorial
