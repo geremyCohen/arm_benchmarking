@@ -12,6 +12,8 @@ Copy and paste each of the following command blocks in order to set up your tuto
 ./scripts/01/install-deps.sh
 ```
 
+> **Note**: You may see a warning about "perf not found for kernel" - this can be safely ignored. The script installs generic perf tools that provide all functionality needed for this tutorial. The warning only indicates that kernel-specific perf modules aren't available, which doesn't affect the benchmarking capabilities.
+
 ### Step 2: Create Project Structure
 This script creates the directory structure for the tutorial.
 
