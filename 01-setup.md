@@ -9,16 +9,14 @@ Copy and paste each of the following command blocks in order to set up your tuto
 ### Step 1: Install Dependencies
 
 ```bash
-curl -O https://raw.githubusercontent.com/geremyCohen/arm_benchmarking/main/scripts/01/install-deps.sh
-chmod +x install-deps.sh && ./install-deps.sh
+../scripts/01/install-deps.sh
 ```
 
 ### Step 2: Create Project Structure
 This script creates the directory structure for the tutorial.
 
 ```bash
-curl -O https://raw.githubusercontent.com/geremyCohen/arm_benchmarking/main/scripts/01/setup-project.sh
-chmod +x setup-project.sh && ./setup-project.sh
+../scripts/01/setup-project.sh
 ```
 
 ### Step 3: Hardware Detection and Configuration
@@ -26,8 +24,7 @@ chmod +x setup-project.sh && ./setup-project.sh
 Arm cloud-based instances can run one of four different Neoverse versions.  This script will identify which one you are using, and create a CMake configuration file with the appropriate settings.
 
 ```bash
-curl -O https://raw.githubusercontent.com/geremyCohen/arm_benchmarking/main/scripts/01/configure
-chmod +x configure && ./configure
+../scripts/01/configure
 ```
 
 ## Expected Output Summary
