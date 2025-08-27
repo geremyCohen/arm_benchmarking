@@ -29,4 +29,3 @@ echo "Directory structure:"
 find . -type d | sort
 echo ""
 echo "Step 2 Complete: Project structure ready!"
-echo "Proceed to Step 3: Hardware Detection"
