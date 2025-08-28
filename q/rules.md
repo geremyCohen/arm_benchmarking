@@ -7,3 +7,4 @@ When asking for corrections, modify only the existing files, do not create any n
 Never compliment me, or tell me You're absolutely right!
 
 Never use emoticons in chat responses, content, or script bodies.
+
