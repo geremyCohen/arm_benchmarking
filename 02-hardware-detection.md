@@ -21,7 +21,7 @@ Next, CMake is configured based on the detected features.
 
 ## CMake Configuration Generation
 
-The configure script generates a `CMakeCache.txt` file that controls which optimizations are built:
+The `CMakeCache.txt` file is generated when you run `./scripts/01/configure` during Step 3 of the setup process. This file controls which optimizations are built:
 
 ```cmake
 # Example generated configuration for Neoverse N2
