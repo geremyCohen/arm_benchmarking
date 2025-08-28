@@ -11,35 +11,17 @@ The tutorial automatically detects which instruction set features are available 
 | **Neoverse V1** | NEON, SVE, wide execution, large caches | Scientific computing, simulation, AI training | **AWS**: Graviton3 (M7g, C7g, R7g, Hpc7g) |
 | **Neoverse V2** | NEON, SVE2, enhanced matrix operations | AI/ML workloads, scientific computing | **AWS**: Graviton4 (M8g, C8g, R8g - newer releases) |
 
-### NEON (Advanced SIMD) & Crypto Extensions
-**Detection**: Advanced SIMD and cryptographic hardware acceleration
+### ARM Instruction Set Features Detection
+**Detection**: Complete hardware feature detection for all ARM extensions
 ```bash
 ./scripts/02/detect-neon-crypto.sh
 ```
 
 **NEON**: 128-bit SIMD instructions (2-4x speedup)
+**SVE**: Variable-length vectors (2-8x speedup, future-proof)
+**SVE2**: Enhanced SVE (additional 20-50% over base SVE)
+**LSE Atomics**: Efficient atomic operations (2-10x in high-contention)
 **Crypto**: Hardware AES, SHA1, SHA2 acceleration (5-20x speedup)
-
-### SVE (Scalable Vector Extension)
-**Detection**: Variable-length vector instructions (128-2048 bits)
-```bash
-./scripts/02/detect-sve.sh
-```
-**Performance**: 2-8x speedup, future-proof vectorization
-
-### SVE2
-**Detection**: Enhanced SVE with additional instructions
-```bash
-./scripts/02/detect-sve2.sh
-```
-**Performance**: Additional 20-50% over base SVE
-
-### LSE Atomics
-**Detection**: Large System Extensions for efficient atomic operations
-```bash
-./scripts/02/detect-lse.sh
-```
-**Performance**: 2-10x improvement in high-contention scenarios
 
 ## CMake Configuration Generation
 
