@@ -11,55 +11,35 @@ The tutorial automatically detects which instruction set features are available 
 | **Neoverse V1** | NEON, SVE, wide execution, large caches | Scientific computing, simulation, AI training | **AWS**: Graviton3 (M7g, C7g, R7g, Hpc7g) |
 | **Neoverse V2** | NEON, SVE2, enhanced matrix operations | AI/ML workloads, scientific computing | **AWS**: Graviton4 (M8g, C8g, R8g - newer releases) |
 
-### NEON (Advanced SIMD)
-**Stands for**: Advanced Single Instruction, Multiple Data
+### NEON (Advanced SIMD) & Crypto Extensions
+**Detection**: Advanced SIMD and cryptographic hardware acceleration
 ```bash
-./scripts/02/detect-neon.sh
+./scripts/02/detect-neon-crypto.sh
 ```
 
-**What it means**: 128-bit SIMD instructions available
-**Tutorial impact**: Enables NEON optimization modules
-**Performance benefit**: 2-4x speedup for suitable workloads
+**NEON**: 128-bit SIMD instructions (2-4x speedup)
+**Crypto**: Hardware AES, SHA1, SHA2 acceleration (5-20x speedup)
 
 ### SVE (Scalable Vector Extension)
-**Stands for**: Scalable Vector Extension
+**Detection**: Variable-length vector instructions (128-2048 bits)
 ```bash
 ./scripts/02/detect-sve.sh
 ```
-
-**What it means**: Variable-length vector instructions (128-2048 bits)
-**Tutorial impact**: Enables SVE optimization modules
-**Performance benefit**: 2-8x speedup, future-proof vectorization
+**Performance**: 2-8x speedup, future-proof vectorization
 
 ### SVE2
-**Stands for**: Scalable Vector Extension 2
+**Detection**: Enhanced SVE with additional instructions
 ```bash
 ./scripts/02/detect-sve2.sh
 ```
-
-**What it means**: Enhanced SVE with additional instructions
-**Tutorial impact**: Enables advanced SVE2 optimizations
-**Performance benefit**: Additional 20-50% over base SVE
+**Performance**: Additional 20-50% over base SVE
 
 ### LSE Atomics
-**Stands for**: Large System Extensions - Atomic Operations
+**Detection**: Large System Extensions for efficient atomic operations
 ```bash
 ./scripts/02/detect-lse.sh
 ```
-
-**What it means**: Large System Extensions for efficient atomic operations
-**Tutorial impact**: Enables atomic optimization modules
-**Performance benefit**: 2-10x improvement in high-contention scenarios
-
-### Crypto Extensions
-**Stands for**: Cryptographic Extensions (AES, SHA1, SHA2)
-```bash
-./scripts/02/detect-crypto.sh
-```
-
-**What it means**: Hardware-accelerated cryptographic operations
-**Tutorial impact**: Enables crypto optimization examples
-**Performance benefit**: 5-20x speedup for cryptographic workloads
+**Performance**: 2-10x improvement in high-contention scenarios
 
 ## CMake Configuration Generation
 
