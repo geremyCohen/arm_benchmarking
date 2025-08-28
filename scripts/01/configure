@@ -82,12 +82,4 @@ echo "Configuration complete!"
 echo "Generated CMakeCache.txt with detected hardware capabilities."
 echo
 echo "Step 3 Complete: Hardware detection finished!"
-echo
-echo "Setup Summary:"
-echo "  Dependencies installed and verified"
-echo "  Project structure created"
-echo "  Hardware capabilities detected"
-echo "  Build configuration generated"
-echo
-echo "Ready to proceed with the Neoverse optimization tutorial!"
-echo "Next: Continue with 02-hardware-detection.md"
+
