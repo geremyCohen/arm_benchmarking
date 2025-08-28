@@ -7,6 +7,7 @@ This tutorial requires an Arm Neoverse-based system running Ubuntu 20+, 8GB+ RAM
 Copy and paste each of the following command blocks in order to set up your tutorial environment:
 
 ### Step 1: Install Dependencies
+This script installs all necessary dependencies including compilers, build tools, and performance libraries.
 
 ```bash
 ./scripts/01/install-deps.sh
@@ -14,75 +15,9 @@ Copy and paste each of the following command blocks in order to set up your tuto
 
 > **Note**: You may see a warning about "perf not found for kernel" - this can be safely ignored. The script installs generic perf tools that provide all functionality needed for this tutorial. The warning only indicates that kernel-specific perf modules aren't available, which doesn't affect the benchmarking capabilities.
 
-### Step 2: Create Project Structure
-This script creates the directory structure for the tutorial.
+### Step 2: Create Project Working Directories
 
-```bash
-./scripts/01/setup-project.sh
-```
-
-### Step 3: Hardware Detection and Configuration
-
-Arm cloud-based instances can run one of four different Neoverse versions.  This script will identify which one you are using, and create a CMake configuration file with the appropriate settings.
-
-```bash
-./scripts/01/configure
-```
-
-## Expected Output Summary
-
-After running all three steps, you should see:
-
-### Step 1 Output:
-```
-Installing Neoverse Optimization Tutorial Dependencies...
-...
-Step 1 Complete: Dependencies installed and verified!
-```
-
-### Step 2 Output:
-```
-Creating Neoverse Tutorial Project Structure...
-Step 2 Complete: Project structure ready!
-```
-
-### Step 3 Output:
-```
-=== Neoverse Optimization Tutorial Configuration ===
-...
-Setup Summary:
-  Dependencies installed and verified
-  Project structure created  
-  Hardware capabilities detected
-  Build configuration generated
-
-Ready to proceed with the Neoverse optimization tutorial!
-```
-
-## What Each Step Does
-
-### **Step 1: Install Dependencies**
-- Updates package lists
-- Installs build tools (cmake, ninja, git)
-- Installs compilers (GCC 11, Clang 18, LLVM 18)
-- Installs performance tools (perf, htop, numactl, stress-ng)
-- Installs development libraries (OpenMP, NUMA, hwloc)
-- Configures perf permissions automatically
-- Verifies all installations
-
-### **Step 2: Create Project Structure**
-- Creates the `neoverse-tutorial` directory
-- Sets up source code directories (`src/`, `include/`)
-- Creates data and documentation directories
-- Changes to the project directory for subsequent steps
-
-### **Step 3: Hardware Detection and Configuration**
-- Detects your specific Neoverse processor type
-- Identifies available instruction set extensions
-- Generates CMake configuration with hardware-specific settings
-- Provides summary of detected capabilities
-
-## Project Structure Created
+Creates the `neoverse-tutorial` working directory with source, data, and documentation folders:
 
 ```
 neoverse-tutorial/
@@ -99,21 +34,24 @@ neoverse-tutorial/
 └── docs/                       # Generated documentation
 ```
 
-> **💡 Next Step**: With setup complete, proceed to [Hardware Detection and Configuration](./02-hardware-detection.md) to understand how the tutorial adapts to your specific Neoverse processor capabilities.
+then navigates (cd) into it for the next steps.
 
-## Troubleshooting
 
-**Permission Issues with perf**: The installation script automatically fixes perf permissions. If you still encounter issues:
 ```bash
-echo 'kernel.perf_event_paranoid = 1' | sudo tee -a /etc/sysctl.conf
-sudo sysctl -p
+./scripts/01/setup-project.sh
 ```
 
-**Missing Compiler Versions**: The script uses clang-18 and llvm-18 which are available on Ubuntu 24.04. For older systems:
+### Step 3: Hardware Detection and Configuration
+
+Arm cloud-based instances can run one of four different Neoverse versions.  This script will identify which one you are using, and create a CMake configuration file with the appropriate settings.  This makes it easy to build and run the tutorial on any Neoverse-based system.
+
+
 ```bash
-# Check available versions
-apt search clang | grep -E "^clang-[0-9]+"
-# Install the highest available version
+./scripts/01/configure
 ```
 
-**SVE Not Detected**: SVE is only available on newer Neoverse implementations. The tutorial will automatically disable SVE-specific optimizations if not available.
+
+
+
+> **Next Steps**: With setup complete, proceed to [Hardware Detection and Configuration](./02-hardware-detection.md) to understand how the tutorial adapts to your specific Neoverse processor capabilities.
+
