@@ -42,7 +42,7 @@ SVE_VL:STRING=256
 
 ## Compiler Flag Selection
 
-Based on your detected hardware, the tutorial automatically selects optimal compiler flags:
+Based on your detected hardware, the tutorial's build system (CMake) automatically selects optimal compiler flags when you compile the optimization examples. The flags are set in the generated `CMakeCache.txt` and applied during the build process:
 
 ### Neoverse N1
 ```bash
