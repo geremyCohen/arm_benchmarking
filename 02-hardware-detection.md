@@ -13,11 +13,11 @@ The tutorial automatically detects which instruction set features are available 
 
 ### ARM Instruction Set Features Detection
 
-**Detection**: Complete hardware feature detection for all ARM extensions
+To detect instruction set features available on this system, run: 
 ```bash
 ./scripts/02/detect-features.sh
 ```
-
+Next, CMake is configured based on the detected features. 
 
 ## CMake Configuration Generation
 
