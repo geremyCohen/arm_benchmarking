@@ -12,16 +12,12 @@ The tutorial automatically detects which instruction set features are available 
 | **Neoverse V2** | NEON, SVE2, enhanced matrix operations | AI/ML workloads, scientific computing | **AWS**: Graviton4 (M8g, C8g, R8g - newer releases) |
 
 ### ARM Instruction Set Features Detection
+
 **Detection**: Complete hardware feature detection for all ARM extensions
 ```bash
 ./scripts/02/detect-neon-crypto.sh
 ```
 
-**NEON**: 128-bit SIMD instructions (2-4x speedup)
-**SVE**: Variable-length vectors (2-8x speedup, future-proof)
-**SVE2**: Enhanced SVE (additional 20-50% over base SVE)
-**LSE Atomics**: Efficient atomic operations (2-10x in high-contention)
-**Crypto**: Hardware AES, SHA1, SHA2 acceleration (5-20x speedup)
 
 ## CMake Configuration Generation
 
