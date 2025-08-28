@@ -2,16 +2,7 @@
 
 The tutorial automatically detects your Neoverse processor type and available features to enable the most relevant optimizations. This page explains what each detection means and how it affects the tutorial.
 
-## Neoverse Processor Types and Cloud Availability
 
-| Processor | Key Features | Typical Use Cases | Cloud Availability |
-|-----------|--------------|-------------------|-------------------|
-| **Neoverse N1** | NEON, LSE atomics, crypto extensions | Web servers, databases, general compute | **AWS**: Graviton2 (M6g, C6g, R6g, T4g)<br>**Azure**: Ampere Altra (Dpsv5, Dplsv5, Epsv5) and Altra Max (Dpsv6, Dplsv6, Epsv6)<br>**GCP**: Tau T2A instances |
-| **Neoverse N2** | NEON, SVE2, LSE atomics, improved crypto | HPC, ML inference, high-performance databases | Not yet commercially available in major cloud offerings |
-| **Neoverse V1** | NEON, SVE, wide execution, large caches | Scientific computing, simulation, AI training | **AWS**: Graviton3 (M7g, C7g, R7g, Hpc7g) |
-| **Neoverse V2** | NEON, SVE2, enhanced matrix operations | AI/ML workloads, scientific computing | **AWS**: Graviton4 (M8g, C8g, R8g - newer releases) |
-
-**Optimization Compatibility**: This tutorial's optimizations are designed for broad compatibility - approximately 90% work across all Neoverse generations, ensuring maximum applicability regardless of your cloud provider or instance type.
 
 ## CPU Instruction Set Features
 
