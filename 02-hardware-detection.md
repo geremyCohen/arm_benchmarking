@@ -15,7 +15,7 @@ The tutorial automatically detects which instruction set features are available 
 
 **Detection**: Complete hardware feature detection for all ARM extensions
 ```bash
-./scripts/02/detect-neon-crypto.sh
+./scripts/02/detect-features.sh
 ```
 
 

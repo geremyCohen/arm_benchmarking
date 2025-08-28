@@ -1,5 +1,5 @@
 #!/bin/bash
-# detect-neon-crypto.sh - Combined detection for all ARM instruction set features
+# detect-features.sh - Combined detection for all ARM instruction set features
 
 echo "=== ARM Instruction Set Features Detection ==="
 echo
