@@ -14,8 +14,7 @@ The tutorial automatically detects which instruction set features are available 
 ### NEON (Advanced SIMD)
 **Stands for**: Advanced Single Instruction, Multiple Data
 ```bash
-# Detection method
-grep "asimd" /proc/cpuinfo
+./scripts/02/detect-neon.sh
 ```
 
 **What it means**: 128-bit SIMD instructions available
@@ -25,8 +24,7 @@ grep "asimd" /proc/cpuinfo
 ### SVE (Scalable Vector Extension)
 **Stands for**: Scalable Vector Extension
 ```bash
-# Detection method
-grep "sve" /proc/cpuinfo
+./scripts/02/detect-sve.sh
 ```
 
 **What it means**: Variable-length vector instructions (128-2048 bits)
@@ -36,8 +34,7 @@ grep "sve" /proc/cpuinfo
 ### SVE2
 **Stands for**: Scalable Vector Extension 2
 ```bash
-# Detection method
-grep "sve2" /proc/cpuinfo
+./scripts/02/detect-sve2.sh
 ```
 
 **What it means**: Enhanced SVE with additional instructions
@@ -47,8 +44,7 @@ grep "sve2" /proc/cpuinfo
 ### LSE Atomics
 **Stands for**: Large System Extensions - Atomic Operations
 ```bash
-# Detection method
-grep "atomics" /proc/cpuinfo
+./scripts/02/detect-lse.sh
 ```
 
 **What it means**: Large System Extensions for efficient atomic operations
@@ -58,8 +54,7 @@ grep "atomics" /proc/cpuinfo
 ### Crypto Extensions
 **Stands for**: Cryptographic Extensions (AES, SHA1, SHA2)
 ```bash
-# Detection method
-grep -E "aes|sha1|sha2" /proc/cpuinfo
+./scripts/02/detect-crypto.sh
 ```
 
 **What it means**: Hardware-accelerated cryptographic operations
@@ -132,22 +127,22 @@ Verify your hardware detection with these commands:
 
 ### CPU Information
 ```bash
-lscpu | grep -E "Model name|Architecture|CPU\(s\):"
+./scripts/02/verify-cpu.sh
 ```
 
 ### Available Features
 ```bash
-cat /proc/cpuinfo | grep Features | head -1
+./scripts/02/verify-features.sh
 ```
 
 ### Cache Hierarchy
 ```bash
-lscpu | grep -E "L1d|L1i|L2|L3"
+./scripts/02/verify-cache.sh
 ```
 
 ### NUMA Topology
 ```bash
-numactl --hardware
+./scripts/02/verify-numa.sh
 ```
 
 ## Performance Implications
