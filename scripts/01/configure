@@ -89,9 +89,5 @@ echo "  Project structure created"
 echo "  Hardware capabilities detected"
 echo "  Build configuration generated"
 echo
-echo "Next steps:"
-echo "  1. Run 'cmake -B build' to generate build files"
-echo "  2. Run 'cmake --build build' to compile the tutorial"
-echo "  3. Run './build/neoverse-tutorial' to start the interactive tutorial"
-echo
 echo "Ready to proceed with the Neoverse optimization tutorial!"
+echo "Next: Continue with 02-hardware-detection.md"
