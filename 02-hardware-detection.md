@@ -44,25 +44,12 @@ SVE_VL:STRING=256
 
 Based on your detected hardware, the tutorial's build system (CMake) automatically selects optimal compiler flags when you compile the optimization examples. The flags are set in the generated `CMakeCache.txt` and applied during the build process:
 
-### Neoverse N1
-```bash
-CFLAGS="-march=armv8.2-a+fp16+rcpc+dotprod+crypto -mtune=neoverse-n1"
-```
-
-### Neoverse N2
-```bash
-CFLAGS="-march=armv9-a+sve2+bf16+i8mm -mtune=neoverse-n2"
-```
-
-### Neoverse V1
-```bash
-CFLAGS="-march=armv8.4-a+sve+bf16+i8mm -mtune=neoverse-v1"
-```
-
-### Neoverse V2
-```bash
-CFLAGS="-march=armv9-a+sve2+bf16+i8mm -mtune=neoverse-v2"
-```
+| Processor | Compiler Flags |
+|-----------|----------------|
+| **Neoverse N1** | `-march=armv8.2-a+fp16+rcpc+dotprod+crypto -mtune=neoverse-n1` |
+| **Neoverse N2** | `-march=armv9-a+sve2+bf16+i8mm -mtune=neoverse-n2` |
+| **Neoverse V1** | `-march=armv8.4-a+sve+bf16+i8mm -mtune=neoverse-v1` |
+| **Neoverse V2** | `-march=armv9-a+sve2+bf16+i8mm -mtune=neoverse-v2` |
 
 ## Manual Override Options
 
