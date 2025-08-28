@@ -47,6 +47,8 @@ Arm cloud-based instances can run one of four different Neoverse versions.  This
 
 #### Neoverse Processor Types and Cloud Availability
 
+Arm Neoverse instruction set optimizations are designed for broad compatibility - approximately 90% work across all Neoverse generations, ensuring maximum applicability regardless of your cloud provider or instance type.
+
 | Processor | Key Features | Typical Use Cases | Cloud Availability |
 |-----------|--------------|-------------------|-------------------|
 | **Neoverse N1** | NEON, LSE atomics, crypto extensions | Web servers, databases, general compute | **AWS**: Graviton2 (M6g, C6g, R6g, T4g)<br>**Azure**: Ampere Altra (Dpsv5, Dplsv5, Epsv5) and Altra Max (Dpsv6, Dplsv6, Epsv6)<br>**GCP**: Tau T2A instances |
@@ -54,13 +56,14 @@ Arm cloud-based instances can run one of four different Neoverse versions.  This
 | **Neoverse V1** | NEON, SVE, wide execution, large caches | Scientific computing, simulation, AI training | **AWS**: Graviton3 (M7g, C7g, R7g, Hpc7g) |
 | **Neoverse V2** | NEON, SVE2, enhanced matrix operations | AI/ML workloads, scientific computing | **AWS**: Graviton4 (M8g, C8g, R8g - newer releases) |
 
-**Optimization Compatibility**: This tutorial's optimizations are designed for broad compatibility - approximately 90% work across all Neoverse generations, ensuring maximum applicability regardless of your cloud provider or instance type.
-
 
 ```bash
 ./scripts/01/configure
 ```
 
-## Next Steps
-With setup complete, proceed to [Hardware Detection and Configuration](./02-hardware-detection.md) to understand how the tutorial adapts to your specific Neoverse processor capabilities.
+## Optimization Compatibility
+Based on the detected instruction set features detected on your system, the tutorial will enable optimizations that are compatible with your hardware.  This ensures that you can run the tutorial on any Neoverse-based instance without compatibility issues.
+
+Next: [# CPU Instruction Set Features
+](./02-hardware-detection.md) to understand how the tutorial "chooses its own adventures" based on your specific Neoverse processor capabilities.
 
