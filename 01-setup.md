@@ -50,8 +50,6 @@ Arm cloud-based instances can run one of four different Neoverse versions.  This
 ./scripts/01/configure
 ```
 
-
-
-
-> **Next Steps**: With setup complete, proceed to [Hardware Detection and Configuration](./02-hardware-detection.md) to understand how the tutorial adapts to your specific Neoverse processor capabilities.
+## Next Steps
+With setup complete, proceed to [Hardware Detection and Configuration](./02-hardware-detection.md) to understand how the tutorial adapts to your specific Neoverse processor capabilities.
 
