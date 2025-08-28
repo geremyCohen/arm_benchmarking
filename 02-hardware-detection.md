@@ -14,7 +14,7 @@ The tutorial automatically detects which instruction set features are available 
 ### ARM Instruction Set Features Detection
 **Detection**: Complete hardware feature detection for all ARM extensions
 ```bash
-./scripts/02/detect-neon-crypto.sh
+./scripts/02/detect-features.sh
 ```
 
 **NEON**: 128-bit SIMD instructions (2-4x speedup)
