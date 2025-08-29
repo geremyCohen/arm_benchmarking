@@ -79,6 +79,31 @@ perf stat -e cycles,instructions,stalled-cycles-backend ./baseline_matrix small
 
 **Key metric to watch**: Backend stalls >50% indicate memory-bound performance (prime target for optimization).
 
+### Understanding the Baseline Implementation
+
+The baseline code uses a simple, unoptimized approach:
+- **No compiler optimizations** (`-O0` flag)
+- **Simple triple-nested loops** (cache-unfriendly)
+- **No vectorization** or SIMD instructions
+- **No memory optimizations**
+
+```c
+// Simple unoptimized matrix multiplication
+void matrix_multiply_baseline(float *A, float *B, float *C, int N) {
+    for (int i = 0; i < N; i++) {
+        for (int j = 0; j < N; j++) {
+            float sum = 0.0f;
+            for (int k = 0; k < N; k++) {
+                sum += A[i * N + k] * B[k * N + j];
+            }
+            C[i * N + j] = sum;
+        }
+    }
+}
+```
+
+This creates the worst-case scenario for performance, giving us maximum room for improvement in later optimization sections.
+
 ### Your Baseline Results
 After running the collection script, you'll have:
 - `results/baseline_summary.txt` - Performance summary for comparison
