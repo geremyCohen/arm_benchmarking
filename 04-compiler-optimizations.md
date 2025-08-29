@@ -55,11 +55,32 @@ Execute this command to test compiler optimizations and compare with your baseli
 ./scripts/04/test-compiler-opts.sh
 ```
 
-This automatically:
-- Builds the same algorithm with different optimization levels (`-O1`, `-O2`, `-O3`, `-march=native`)
-- Tests performance on 512x512 matrices
-- Compares results with your baseline from section 03
-- Shows speedup ratios for each optimization level
+For a comprehensive analysis of all optimization combinations:
+
+```bash
+# Test all combinations of optimization levels × architecture targeting
+./scripts/04/test-compiler-matrix.sh
+```
+
+### Comprehensive Optimization Matrix
+
+The matrix test shows performance across all combinations:
+
+**Example results on Neoverse V2:**
+```
+| Optimization | Generic  | Native   | Neoverse | Best     |
+|--------------|----------|----------|----------|----------|
+| -O0 (baseline) | 0.66     | 0.66     | 0.66     | 0.66x    |
+| -O1          | 2.42     | 2.42     | 2.41     | 3.6x     |
+| -O2          | 2.36     | 2.36     | 2.59     | 3.9x     |
+| -O3          | 2.36     | 2.36     | 2.59     | 3.9x     |
+```
+
+**Key findings:**
+- **-O1 is architecture-agnostic**: Similar performance across all targeting modes
+- **-O2/-O3 benefit from Neoverse targeting**: 10% improvement (2.59 vs 2.36 GFLOPS)
+- **-march=native vs explicit Neoverse**: Explicit targeting performs better
+- **Best overall**: -O2 or -O3 with Neoverse-specific flags (3.9x speedup)
 
 ### Understanding the Results
 
