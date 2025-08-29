@@ -63,9 +63,9 @@ Verify your hardware detection with this comprehensive system check:
 
 Now that hardware detection is complete, you can:
 
-1. **Build the tutorial**: `cmake -B build && cmake --build build`
-2. **Run baseline tests**: `./build/neoverse-tutorial --baseline`
-3. **Start with compiler optimizations**: Most universal and easiest to implement
+1. **Continue to baseline setup**: [Baseline Performance Measurement](./03-baseline.md)
+2. **Verify your system**: `./scripts/02/verify-system.sh`
+3. **Check detected features**: `./scripts/02/detect-features.sh`
 
 > **ℹ️ Hardware Note**: If you're running on a cloud instance, some features (like SVE) may not be available depending on the instance type. The tutorial will automatically adapt to available features.
 
