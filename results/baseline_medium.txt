@@ -1,6 +1,6 @@
 === Baseline Matrix Multiplication ===
 Size: 2048x2048 (medium)
 Memory: 48.0 MB
-Time: 29.319 seconds
+Time: 29.178 seconds
 Performance: 0.59 GFLOPS
 Result check: C[0] = 4096.0 (expected: 4096.0)

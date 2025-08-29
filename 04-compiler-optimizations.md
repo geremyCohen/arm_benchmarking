@@ -48,18 +48,60 @@ CFLAGS="-O1"
 
 ## Running Compiler Optimization Tests
 
-Test the impact of different compiler flags:
+Execute this command to test compiler optimizations and compare with your baseline:
 
 ```bash
-# Test basic optimization levels
-./build/neoverse-tutorial --test=compiler-basic --size=medium
-
-# Test architecture-specific flags
-./build/neoverse-tutorial --test=compiler-arch --size=medium
-
-# Compare all compiler optimization combinations
-./build/neoverse-tutorial --test=compiler-all --size=medium
+# Test all compiler optimization levels and compare with baseline
+./scripts/04/test-compiler-opts.sh
 ```
+
+This automatically:
+- Builds the same algorithm with different optimization levels (`-O1`, `-O2`, `-O3`, `-march=native`)
+- Tests performance on 512x512 matrices
+- Compares results with your baseline from section 03
+- Shows speedup ratios for each optimization level
+
+### Understanding the Results
+
+**Example output on Neoverse V2:**
+```
+=== Performance Comparison ===
+  -O1: 2.39 GFLOPS (3.6x speedup)
+  -O2: 2.33 GFLOPS (3.5x speedup)  
+  -O3: 2.35 GFLOPS (3.5x speedup)
+  -arch: 2.34 GFLOPS (3.5x speedup)
+```
+
+**Key insights:**
+- **-O1 provides most gains**: Often 3-4x improvement over -O0
+- **-O2 vs -O3**: Diminishing returns, sometimes -O2 is faster
+- **-march=native**: Enables processor-specific instructions (SVE, crypto extensions)
+- **Same source code**: Only compilation flags changed, demonstrating compiler impact
+
+### What the Compiler Does
+
+The optimizations transform your code without changing the algorithm:
+
+**-O1 optimizations:**
+- Loop unrolling and basic vectorization
+- Dead code elimination
+- Register allocation improvements
+
+**-O2 optimizations:**
+- Aggressive inlining and loop optimizations
+- Instruction scheduling for Neoverse pipelines
+- Auto-vectorization with NEON instructions
+
+**-O3 optimizations:**
+- More aggressive loop transformations
+- Function cloning and specialization
+- Advanced instruction-level parallelism
+
+**-march=native optimizations:**
+- SVE instructions (if available)
+- Crypto acceleration instructions
+- LSE atomic operations
+- Processor-specific instruction scheduling
 
 ## Expected Results: Basic Optimizations
 
