@@ -51,21 +51,6 @@ Based on your detected hardware, the tutorial's build system (CMake) automatical
 | **Neoverse V1** | `-march=armv8.4-a+sve+bf16+i8mm -mtune=neoverse-v1` |
 | **Neoverse V2** | `-march=armv9-a+sve2+bf16+i8mm -mtune=neoverse-v2` |
 
-## Manual Override Options
-
-You can override automatic detection for testing purposes:
-
-```bash
-# Force enable SVE even if not detected
-cmake -B build -DFORCE_SVE=ON
-
-# Test with different Neoverse target
-cmake -B build -DNEOVERSE_TYPE=v1
-
-# Disable specific features
-cmake -B build -DDISABLE_CRYPTO=ON
-```
-
 ## Verification Commands
 
 Verify your hardware detection with this comprehensive system check:
