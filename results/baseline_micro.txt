@@ -1,0 +1,6 @@
+=== Baseline Matrix Multiplication ===
+Size: 64x64 (micro)
+Memory: 0.0 MB
+Time: 0.001 seconds
+Performance: 0.74 GFLOPS
+Result check: C[0] = 128.0 (expected: 128.0)

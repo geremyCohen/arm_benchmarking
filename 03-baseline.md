@@ -58,45 +58,41 @@ The tutorial tests across multiple matrix sizes to understand performance charac
 
 ## Running Baseline Tests
 
-Now let's create and run an actual baseline measurement to establish our performance starting point:
+Execute these required commands to establish your performance baseline:
 
-### Step 1: Compile the Baseline Code
-
+### Step 1: Collect Baseline Data
 ```bash
-# Compile unoptimized baseline matrix multiplication
-make baseline
+# Run complete baseline collection (builds, tests, saves results)
+./scripts/03/collect-baseline.sh
 ```
 
-This creates a simple, unoptimized matrix multiplication using:
-- **No compiler optimizations** (`-O0` flag)
-- **Simple triple-nested loops** (cache-unfriendly)
-- **No vectorization** or SIMD instructions
-- **No memory optimizations**
+This automatically:
+- Compiles unoptimized code (`-O0` flag)
+- Tests micro, small, and medium matrix sizes
+- Saves results to `results/baseline_summary.txt` for comparison
 
-### Step 2: Run Baseline Measurements
-
+### Step 2: Profile Performance Bottlenecks
 ```bash
-# Test different matrix sizes
-./baseline_matrix micro    # 64x64 (L1 cache)
-./baseline_matrix small    # 512x512 (L2 cache) 
-./baseline_matrix medium   # 2048x2048 (L3 cache)
+# Identify optimization opportunities
+perf stat -e cycles,instructions,stalled-cycles-backend ./baseline_matrix small
 ```
 
-### Step 3: Record Your Baseline Results
+**Key metric to watch**: Backend stalls >50% indicate memory-bound performance (prime target for optimization).
 
-Example output on Neoverse V2:
+### Your Baseline Results
+After running the collection script, you'll have:
+- `results/baseline_summary.txt` - Performance summary for comparison
+- Individual result files for detailed analysis
+- Profiling data showing optimization opportunities
+
+**Example baseline on Neoverse V2:**
 ```
-=== Baseline Matrix Multiplication ===
-Size: 512x512 (small)
-Memory: 3.0 MB
-Time: 0.234 seconds
-Performance: 1.15 GFLOPS
-Result check: C[0] = 1024.0 (expected: 1024.0)
+micro: 0.73 GFLOPS (0.001s)
+small: 0.63 GFLOPS (0.425s)  
+medium: [varies by system]
 ```
 
-**Record these numbers** - they're your baseline for measuring optimization improvements in later sections.
-
-> **📝 Note**: Your baseline performance will vary based on your specific Neoverse processor type. The key is establishing a consistent measurement methodology that we'll use to compare optimizations.
+> **📝 Next**: These baseline numbers will be automatically compared against optimizations in sections 04+.
 
 ## Expected Baseline Output
 
@@ -205,42 +201,14 @@ Typical baseline performance on different Neoverse processors:
 | V1 | 2048x2048 | 0.5-0.8 | 4-6 GB/s | Cache utilization |
 | V2 | 2048x2048 | 0.6-1.0 | 5-7 GB/s | Vector efficiency |
 
-## Profiling Integration
-
-You can profile the baseline measurement using Linux perf tools:
-
-```bash
-# Basic performance counters
-perf stat ./baseline_matrix small
-
-# Detailed cache analysis
-perf stat -e cache-references,cache-misses,L1-dcache-loads,L1-dcache-load-misses ./baseline_matrix small
-
-# CPU cycle breakdown
-perf stat -e cycles,instructions,stalled-cycles-frontend,stalled-cycles-backend ./baseline_matrix small
-```
-
-This shows key metrics like:
-- **Instructions per cycle**: How efficiently the CPU executes code
-- **Cache miss rates**: L1/L2/L3 cache performance
-- **Backend stalls**: Memory bandwidth limitations (54% in baseline example)
-- **Branch prediction**: Misprediction rates
-
-Example baseline profiling output:
-```
-Performance counter stats for './baseline_matrix small':
-  8,286,680,329  instructions     #  3.67  insn per cycle
-  2,259,089,430  cycles           #  2.649 GHz
-  1,220,227,618  stalled-cycles-backend  # 54.01% backend cycles idle
-```
-
-**Key insight**: 54% backend stalls indicate memory-bound performance - perfect target for optimization!
-
 ## Next Steps
 
-With your baseline established, you're ready to start optimizing. The recommended progression:
+With baseline data collected in `results/baseline_summary.txt`, continue to:
 
-1. **[Compiler Optimizations](./)**: Easy wins with build flags
+1. **[Compiler Optimizations](./04-compiler-optimizations.md)**: Easy 2-3x performance gains
+2. **Compare results**: Each optimization section will automatically compare against your baseline
+
+Ready to start optimizing? Continue to [Build and Compiler Optimizations](./04-compiler-optimizations.md).
 2. **[SIMD Optimizations](./)**: Vectorization for compute performance
 3. **[Memory Optimizations](./)**: Cache and access pattern improvements
 
