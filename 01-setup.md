@@ -49,12 +49,12 @@ Arm cloud-based instances can run one of four different Neoverse versions.  This
 
 Arm Neoverse instruction set optimizations are designed for broad compatibility - approximately 90% work across all Neoverse generations, ensuring maximum applicability regardless of your cloud provider or instance type.
 
-| Processor | Key Features | Typical Use Cases | Key Optimizations | Expected Gains | Cloud Availability |
-|-----------|--------------|-------------------|-------------------|----------------|-------------------|
-| **Neoverse N1** | NEON, LSE atomics, crypto extensions | Web servers, databases, general compute | Prefetch, alignment, NEON | 2-3x | **AWS**: Graviton2 (M6g, C6g, R6g, T4g)<br>**Azure**: Ampere Altra (Dpsv5, Dplsv5, Epsv5) and Altra Max (Dpsv6, Dplsv6, Epsv6)<br>**GCP**: Tau T2A instances |
-| **Neoverse N2** | NEON, SVE2, LSE atomics, improved crypto | HPC, ML inference, high-performance databases | SVE2, compiler opts | 3-4x | Not yet commercially available in major cloud offerings |
-| **Neoverse V1** | NEON, SVE, wide execution, large caches | Scientific computing, simulation, AI training | SVE, cache blocking | 4-6x | **AWS**: Graviton3 (M7g, C7g, R7g, Hpc7g) |
-| **Neoverse V2** | NEON, SVE2, enhanced matrix operations | AI/ML workloads, scientific computing | Advanced SVE2, matrix ops | 5-8x | **AWS**: Graviton4 (M8g, C8g, R8g - newer releases) |
+| Processor | Key Features | Typical Use Cases | Optimizations & Gains | Cloud Availability |
+|-----------|--------------|-------------------|----------------------|-------------------|
+| **Neoverse N1** | NEON, LSE atomics, crypto extensions | Web servers, databases, general compute | Prefetch, alignment, NEON (2-3x) | **AWS**: Graviton2 (M6g, C6g, R6g, T4g)<br>**Azure**: Ampere Altra (Dpsv5, Dplsv5, Epsv5) and Altra Max (Dpsv6, Dplsv6, Epsv6)<br>**GCP**: Tau T2A instances |
+| **Neoverse N2** | NEON, SVE2, LSE atomics, improved crypto | HPC, ML inference, high-performance databases | SVE2, compiler opts (3-4x) | Not yet commercially available in major cloud offerings |
+| **Neoverse V1** | NEON, SVE, wide execution, large caches | Scientific computing, simulation, AI training | SVE, cache blocking (4-6x) | **AWS**: Graviton3 (M7g, C7g, R7g, Hpc7g) |
+| **Neoverse V2** | NEON, SVE2, enhanced matrix operations | AI/ML workloads, scientific computing | Advanced SVE2, matrix ops (5-8x) | **AWS**: Graviton4 (M8g, C8g, R8g - newer releases) |
 
 
 ```bash
