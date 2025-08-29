@@ -58,20 +58,45 @@ The tutorial tests across multiple matrix sizes to understand performance charac
 
 ## Running Baseline Tests
 
-The baseline measurement tools will be built in later tutorial sections. For now, you can:
+Now let's create and run an actual baseline measurement to establish our performance starting point:
+
+### Step 1: Compile the Baseline Code
 
 ```bash
-# Verify your system is ready for benchmarking
-./scripts/02/verify-system.sh
-
-# Check detected ARM features
-./scripts/02/detect-features.sh
-
-# Continue to compiler optimizations setup
-# (Build system and source code will be created in section 04)
+# Compile unoptimized baseline matrix multiplication
+make baseline
 ```
 
-> **📝 Note**: The actual baseline benchmarking executable will be created when you reach the [Build and Compiler Optimizations](./04-compiler-optimizations.md) section, which includes the complete build system setup.
+This creates a simple, unoptimized matrix multiplication using:
+- **No compiler optimizations** (`-O0` flag)
+- **Simple triple-nested loops** (cache-unfriendly)
+- **No vectorization** or SIMD instructions
+- **No memory optimizations**
+
+### Step 2: Run Baseline Measurements
+
+```bash
+# Test different matrix sizes
+./baseline_matrix micro    # 64x64 (L1 cache)
+./baseline_matrix small    # 512x512 (L2 cache) 
+./baseline_matrix medium   # 2048x2048 (L3 cache)
+```
+
+### Step 3: Record Your Baseline Results
+
+Example output on Neoverse V2:
+```
+=== Baseline Matrix Multiplication ===
+Size: 512x512 (small)
+Memory: 3.0 MB
+Time: 0.234 seconds
+Performance: 1.15 GFLOPS
+Result check: C[0] = 1024.0 (expected: 1024.0)
+```
+
+**Record these numbers** - they're your baseline for measuring optimization improvements in later sections.
+
+> **📝 Note**: Your baseline performance will vary based on your specific Neoverse processor type. The key is establishing a consistent measurement methodology that we'll use to compare optimizations.
 
 ## Expected Baseline Output
 
