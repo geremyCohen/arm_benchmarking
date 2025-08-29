@@ -48,35 +48,13 @@ This implementation deliberately uses:
 
 The tutorial tests across multiple matrix sizes to understand performance characteristics:
 
-### Micro (64x64)
-- **Total elements**: 4,096 per matrix
-- **Memory usage**: ~48KB total
-- **Cache behavior**: Fits entirely in L1 cache
-- **Purpose**: Test instruction-level optimizations
-
-### Small (512x512)
-- **Total elements**: 262,144 per matrix
-- **Memory usage**: ~3MB total  
-- **Cache behavior**: Fits in L2 cache
-- **Purpose**: Test L1/L2 cache optimization
-
-### Medium (2048x2048)
-- **Total elements**: 4,194,304 per matrix
-- **Memory usage**: ~48MB total
-- **Cache behavior**: Fits in L3 cache
-- **Purpose**: Test L2/L3 cache optimization
-
-### Large (8192x8192)
-- **Total elements**: 67,108,864 per matrix
-- **Memory usage**: ~768MB total
-- **Cache behavior**: Exceeds most L3 caches
-- **Purpose**: Test memory bandwidth optimization
-
-### Huge (16384x16384)
-- **Total elements**: 268,435,456 per matrix
-- **Memory usage**: ~3GB total
-- **Cache behavior**: Tests virtual memory system
-- **Purpose**: Test THP and NUMA optimization
+| Size | Dimensions | Elements | Memory Usage | Cache Behavior | Purpose |
+|------|------------|----------|--------------|----------------|---------|
+| **Micro** | 64x64 | 4,096 | ~48KB | Fits in L1 cache | Test instruction-level optimizations |
+| **Small** | 512x512 | 262,144 | ~3MB | Fits in L2 cache | Test L1/L2 cache optimization |
+| **Medium** | 2048x2048 | 4,194,304 | ~48MB | Fits in L3 cache | Test L2/L3 cache optimization |
+| **Large** | 8192x8192 | 67,108,864 | ~768MB | Exceeds most L3 caches | Test memory bandwidth optimization |
+| **Huge** | 16384x16384 | 268,435,456 | ~3GB | Tests virtual memory | Test THP and NUMA optimization |
 
 ## Running Baseline Tests
 
