@@ -59,17 +59,6 @@ Verify your hardware detection with this comprehensive system check:
 ./scripts/02/verify-system.sh
 ```
 
-## Performance Implications
-
-Different Neoverse processors have varying optimization priorities:
-
-| Processor | Primary Bottleneck | Key Optimizations | Expected Gains |
-|-----------|-------------------|-------------------|----------------|
-| N1 | Memory bandwidth | Prefetch, alignment, NEON | 2-3x |
-| N2 | Instruction throughput | SVE2, compiler opts | 3-4x |
-| V1 | Cache utilization | SVE, cache blocking | 4-6x |
-| V2 | Vector efficiency | Advanced SVE2, matrix ops | 5-8x |
-
 ## Next Steps
 
 Now that hardware detection is complete, you can:
