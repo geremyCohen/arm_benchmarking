@@ -68,26 +68,10 @@ cmake -B build -DDISABLE_CRYPTO=ON
 
 ## Verification Commands
 
-Verify your hardware detection with these commands:
+Verify your hardware detection with this comprehensive system check:
 
-### CPU Information
 ```bash
-./scripts/02/verify-cpu.sh
-```
-
-### Available Features
-```bash
-./scripts/02/verify-features.sh
-```
-
-### Cache Hierarchy
-```bash
-./scripts/02/verify-cache.sh
-```
-
-### NUMA Topology
-```bash
-./scripts/02/verify-numa.sh
+./scripts/02/verify-system.sh
 ```
 
 ## Performance Implications
