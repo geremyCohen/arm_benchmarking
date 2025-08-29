@@ -80,19 +80,20 @@ The tutorial tests across multiple matrix sizes to understand performance charac
 
 ## Running Baseline Tests
 
-Build and run the baseline measurement:
+The baseline measurement tools will be built in later tutorial sections. For now, you can:
 
 ```bash
-# Build the tutorial
-cmake -B build
-cmake --build build
+# Verify your system is ready for benchmarking
+./scripts/02/verify-system.sh
 
-# Run baseline tests across all sizes
-./build/neoverse-tutorial --baseline --all-sizes
+# Check detected ARM features
+./scripts/02/detect-features.sh
 
-# Run specific size for detailed analysis
-./build/neoverse-tutorial --baseline --size=medium --verbose
+# Continue to compiler optimizations setup
+# (Build system and source code will be created in section 04)
 ```
+
+> **📝 Note**: The actual baseline benchmarking executable will be created when you reach the [Build and Compiler Optimizations](./04-compiler-optimizations.md) section, which includes the complete build system setup.
 
 ## Expected Baseline Output
 
