@@ -207,21 +207,34 @@ Typical baseline performance on different Neoverse processors:
 
 ## Profiling Integration
 
-The baseline measurement includes integrated profiling:
+You can profile the baseline measurement using Linux perf tools:
 
 ```bash
-# Run with detailed profiling
-./build/neoverse-tutorial --baseline --profile=detailed
+# Basic performance counters
+perf stat ./baseline_matrix small
 
-# Generate performance report
-./build/neoverse-tutorial --baseline --report=html
+# Detailed cache analysis
+perf stat -e cache-references,cache-misses,L1-dcache-loads,L1-dcache-load-misses ./baseline_matrix small
+
+# CPU cycle breakdown
+perf stat -e cycles,instructions,stalled-cycles-frontend,stalled-cycles-backend ./baseline_matrix small
 ```
 
-This creates detailed reports showing:
-- **Hotspot analysis**: Which functions consume the most time
-- **Cache behavior**: Miss rates and access patterns
-- **Branch prediction**: Misprediction rates and patterns
-- **Memory access**: Bandwidth utilization and stall analysis
+This shows key metrics like:
+- **Instructions per cycle**: How efficiently the CPU executes code
+- **Cache miss rates**: L1/L2/L3 cache performance
+- **Backend stalls**: Memory bandwidth limitations (54% in baseline example)
+- **Branch prediction**: Misprediction rates
+
+Example baseline profiling output:
+```
+Performance counter stats for './baseline_matrix small':
+  8,286,680,329  instructions     #  3.67  insn per cycle
+  2,259,089,430  cycles           #  2.649 GHz
+  1,220,227,618  stalled-cycles-backend  # 54.01% backend cycles idle
+```
+
+**Key insight**: 54% backend stalls indicate memory-bound performance - perfect target for optimization!
 
 ## Next Steps
 
