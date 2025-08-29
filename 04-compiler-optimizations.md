@@ -65,17 +65,21 @@ This automatically:
 
 **Example output on Neoverse V2:**
 ```
+Detected: Neoverse-V2
+Using flags: -march=armv9-a+sve2+bf16+i8mm -mtune=neoverse-v2
+
 === Performance Comparison ===
-  -O1: 2.39 GFLOPS (3.6x speedup)
-  -O2: 2.33 GFLOPS (3.5x speedup)  
+  -O1: 2.42 GFLOPS (3.6x speedup)
+  -O2: 2.36 GFLOPS (3.5x speedup)  
   -O3: 2.35 GFLOPS (3.5x speedup)
-  -arch: 2.34 GFLOPS (3.5x speedup)
+  -O3 + Neoverse flags: 2.57 GFLOPS (3.8x speedup)
 ```
 
 **Key insights:**
 - **-O1 provides most gains**: Often 3-4x improvement over -O0
 - **-O2 vs -O3**: Diminishing returns, sometimes -O2 is faster
-- **-march=native**: Enables processor-specific instructions (SVE, crypto extensions)
+- **Neoverse-specific flags**: Additional 9% improvement (2.57 vs 2.35 GFLOPS)
+- **Processor detection**: Script automatically detects your Neoverse type and uses optimal flags
 - **Same source code**: Only compilation flags changed, demonstrating compiler impact
 
 ### What the Compiler Does
@@ -97,11 +101,12 @@ The optimizations transform your code without changing the algorithm:
 - Function cloning and specialization
 - Advanced instruction-level parallelism
 
-**-march=native optimizations:**
-- SVE instructions (if available)
-- Crypto acceleration instructions
-- LSE atomic operations
-- Processor-specific instruction scheduling
+**-O3 + Neoverse-specific optimizations:**
+- SVE2 instructions (variable-length vectors)
+- BF16 and I8MM matrix operations
+- Neoverse V2-specific instruction scheduling
+- Advanced crypto acceleration instructions
+- LSE atomic operations for better concurrency
 
 ## Expected Results: Basic Optimizations
 

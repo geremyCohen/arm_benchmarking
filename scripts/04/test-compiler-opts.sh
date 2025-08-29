@@ -10,8 +10,37 @@ if [ ! -f results/baseline_summary.txt ]; then
     exit 1
 fi
 
+# Detect Neoverse processor type for proper -march/-mtune flags
+NEOVERSE_TYPE=$(lscpu | grep "Model name" | awk '{print $3}')
+case $NEOVERSE_TYPE in
+    "Neoverse-N1")
+        MARCH_FLAGS="-march=armv8.2-a+fp16+rcpc+dotprod+crypto -mtune=neoverse-n1"
+        ;;
+    "Neoverse-N2")
+        MARCH_FLAGS="-march=armv9-a+sve2+bf16+i8mm -mtune=neoverse-n2"
+        ;;
+    "Neoverse-V1")
+        MARCH_FLAGS="-march=armv8.4-a+sve+bf16+i8mm -mtune=neoverse-v1"
+        ;;
+    "Neoverse-V2")
+        MARCH_FLAGS="-march=armv9-a+sve2+bf16+i8mm -mtune=neoverse-v2"
+        ;;
+    *)
+        MARCH_FLAGS="-march=native -mtune=native"
+        echo "Warning: Unknown processor $NEOVERSE_TYPE, using -march=native"
+        ;;
+esac
+
+echo "Detected: $NEOVERSE_TYPE"
+echo "Using flags: $MARCH_FLAGS"
+echo
+
 echo "Building optimized versions..."
-make opt-O1 opt-O2 opt-O3 opt-arch
+make opt-O1 opt-O2 opt-O3
+
+# Build with Neoverse-specific flags
+echo "Building with Neoverse-specific optimization..."
+gcc -O3 $MARCH_FLAGS -Wall -o optimized_neoverse src/optimized_matrix.c -lm
 
 echo
 echo "Testing compiler optimizations (small matrix: 512x512)..."
@@ -21,7 +50,7 @@ echo
 > results/compiler_opts_summary.txt
 
 # Test each optimization level
-for opt in O1 O2 O3 arch; do
+for opt in O1 O2 O3; do
     echo "Testing -$opt optimization..."
     ./optimized_$opt small > results/opt_${opt}_small.txt
     
@@ -31,6 +60,13 @@ for opt in O1 O2 O3 arch; do
     
     echo "$opt: ${gflops} GFLOPS (${time}s)" >> results/compiler_opts_summary.txt
 done
+
+# Test Neoverse-specific optimization
+echo "Testing Neoverse-specific optimization..."
+./optimized_neoverse small > results/opt_neoverse_small.txt
+gflops=$(grep "Performance:" results/opt_neoverse_small.txt | awk '{print $2}')
+time=$(grep "Time:" results/opt_neoverse_small.txt | awk '{print $2}')
+echo "neoverse: ${gflops} GFLOPS (${time}s)" >> results/compiler_opts_summary.txt
 
 echo
 echo "=== Compiler Optimization Results ==="
@@ -44,11 +80,16 @@ cat results/compiler_opts_summary.txt
 
 echo
 echo "=== Performance Comparison ==="
-for opt in O1 O2 O3 arch; do
+for opt in O1 O2 O3 neoverse; do
     opt_gflops=$(grep "$opt:" results/compiler_opts_summary.txt | awk '{print $2}')
     speedup=$(echo "scale=1; $opt_gflops / $baseline_gflops" | bc -l)
-    echo "  -$opt: ${opt_gflops} GFLOPS (${speedup}x speedup)"
+    if [ "$opt" = "neoverse" ]; then
+        echo "  -O3 + Neoverse flags: ${opt_gflops} GFLOPS (${speedup}x speedup)"
+    else
+        echo "  -$opt: ${opt_gflops} GFLOPS (${speedup}x speedup)"
+    fi
 done
 
 echo
+echo "Neoverse-specific flags used: $MARCH_FLAGS"
 echo "Results saved to results/compiler_opts_summary.txt"

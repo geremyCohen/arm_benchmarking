@@ -16,12 +16,8 @@ opt-O2:
 opt-O3:
 	$(CC) -O3 -Wall -o optimized_O3 $(OPT_SRC) -lm
 
-# Architecture-specific optimization (auto-detect Neoverse type)
-opt-arch:
-	$(CC) -O3 -march=native -mtune=native -Wall -o optimized_arch $(OPT_SRC) -lm
-
 # Clean build artifacts
 clean:
-	rm -f baseline_matrix optimized_O1 optimized_O2 optimized_O3 optimized_arch
+	rm -f baseline_matrix optimized_O1 optimized_O2 optimized_O3 optimized_neoverse
 
-.PHONY: baseline opt-O1 opt-O2 opt-O3 opt-arch clean
+.PHONY: baseline opt-O1 opt-O2 opt-O3 clean
