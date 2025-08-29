@@ -58,26 +58,19 @@ The tutorial tests across multiple matrix sizes to understand performance charac
 
 ## Running Baseline Tests
 
-Execute these required commands to establish your performance baseline:
+Execute these commands to establish your performance baseline:
 
-### Step 1: Collect Baseline Data
 ```bash
-# Run complete baseline collection (builds, tests, saves results)
+# Collect baseline data and profile performance bottlenecks
 ./scripts/03/collect-baseline.sh
+perf stat -e cycles,instructions,stalled-cycles-backend ./baseline_matrix small
 ```
 
 This automatically:
 - Compiles unoptimized code (`-O0` flag)
 - Tests micro, small, and medium matrix sizes
 - Saves results to `results/baseline_summary.txt` for comparison
-
-### Step 2: Profile Performance Bottlenecks
-```bash
-# Identify optimization opportunities
-perf stat -e cycles,instructions,stalled-cycles-backend ./baseline_matrix small
-```
-
-**Key metric to watch**: Backend stalls >50% indicate memory-bound performance (prime target for optimization).
+- Shows backend stalls >50% indicating memory-bound performance (prime optimization target)
 
 ### Understanding the Baseline Implementation
 
