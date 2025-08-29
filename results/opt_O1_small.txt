@@ -1,6 +1,6 @@
 === Optimized Matrix Multiplication ===
 Size: 512x512 (small)
 Memory: 3.0 MB
-Time: 0.112 seconds
+Time: 0.111 seconds
 Performance: 2.41 GFLOPS
 Result check: C[0] = 1024.0 (expected: 1024.0)

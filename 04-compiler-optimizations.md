@@ -76,11 +76,25 @@ The matrix test shows performance across all combinations:
 | -O3          | 2.36     | 2.36     | 2.59     | 3.9x     |
 ```
 
-**Key findings:**
-- **-O1 is architecture-agnostic**: Similar performance across all targeting modes
-- **-O2/-O3 benefit from Neoverse targeting**: 10% improvement (2.59 vs 2.36 GFLOPS)
-- **-march=native vs explicit Neoverse**: Explicit targeting performs better
-- **Best overall**: -O2 or -O3 with Neoverse-specific flags (3.9x speedup)
+### Performance Across Matrix Sizes
+
+To see how compiler optimizations scale with problem size:
+
+```bash
+# Compare baseline vs optimized across all matrix sizes
+./scripts/04/compare-sizes.sh
+```
+
+**Example results showing optimization impact by size:**
+```
+| Size | Baseline (GFLOPS) | Optimized (GFLOPS) | Speedup | Time Reduction |
+|------|-------------------|---------------------|---------|----------------|
+| micro | 0.73              | 3.73                | 5.1x    | 100.0%         |
+| small | 0.66              | 2.57                | 3.8x    | 70.0%          |
+| medium | 0.59              | 0.68                | 1.1x    | 10.0%          |
+```
+
+**Key insight**: Compiler optimizations provide massive gains for cache-friendly workloads but diminishing returns as problems become memory-bound. This demonstrates why different optimization strategies are needed for different problem scales.
 
 ### Understanding the Results
 
