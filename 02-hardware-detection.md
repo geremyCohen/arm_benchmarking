@@ -69,19 +69,4 @@ Now that hardware detection is complete, you can:
 
 > **ℹ️ Hardware Note**: If you're running on a cloud instance, some features (like SVE) may not be available depending on the instance type. The tutorial will automatically adapt to available features.
 
-## Understanding the Output
-
-When you run `./configure`, pay attention to:
-
-- **Neoverse Type**: Determines which processor-specific optimizations are available
-- **Feature Availability**: Shows which optimization categories will be enabled
-- **Core Count**: Affects threading and NUMA optimization recommendations
-- **SVE Vector Length**: Critical for SVE optimization effectiveness
-
-The tutorial uses this information to:
-- Enable only relevant optimization modules
-- Set appropriate compiler flags
-- Configure test parameters for your hardware
-- Provide hardware-specific performance guidance
-
 Ready to establish your performance baseline? Continue to [Baseline Performance Measurement](./03-baseline.md).
