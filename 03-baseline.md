@@ -154,20 +154,20 @@ After running baseline tests, consider:
 
 Typical baseline performance on different Neoverse processors:
 
-| Processor | Matrix Size | Baseline GFLOPS | Memory BW | Primary Bottleneck |
-|-----------|-------------|-----------------|-----------|-------------------|
+| Processor | Matrix Size | Baseline GFLOPS | Memory BW | Tuning Priority        |
+|-----------|-------------|-----------------|-----------|------------------------|
 | **N1** | 64x64 (micro) | 0.5-0.8 | 0.1-0.2 GB/s | Instruction scheduling |
-| N1 | 512x512 (small) | 0.4-0.6 | 1-2 GB/s | Cache access pattern |
-| N1 | 2048x2048 (medium) | 0.3-0.5 | 2-3 GB/s | Memory access pattern |
+| N1 | 512x512 (small) | 0.4-0.6 | 1-2 GB/s | Cache access pattern   |
+| N1 | 2048x2048 (medium) | 0.3-0.5 | 2-3 GB/s | Memory access pattern  |
 | **N2** | 64x64 (micro) | 0.6-1.0 | 0.1-0.3 GB/s | Instruction throughput |
-| N2 | 512x512 (small) | 0.5-0.8 | 2-3 GB/s | Vector utilization |
-| N2 | 2048x2048 (medium) | 0.4-0.7 | 3-4 GB/s | Memory bandwidth |
-| **V1** | 64x64 (micro) | 0.7-1.2 | 0.2-0.4 GB/s | Vector efficiency |
-| V1 | 512x512 (small) | 0.6-0.9 | 2-4 GB/s | Cache utilization |
-| V1 | 2048x2048 (medium) | 0.5-0.8 | 4-6 GB/s | Memory bandwidth |
-| **V2** | 64x64 (micro) | 0.8-1.4 | 0.2-0.5 GB/s | Vector efficiency |
-| V2 | 512x512 (small) | 0.6-1.0 | 3-5 GB/s | SVE2 utilization |
-| V2 | 2048x2048 (medium) | 0.6-1.0 | 5-7 GB/s | Memory bandwidth |
+| N2 | 512x512 (small) | 0.5-0.8 | 2-3 GB/s | Vector utilization     |
+| N2 | 2048x2048 (medium) | 0.4-0.7 | 3-4 GB/s | Memory bandwidth       |
+| **V1** | 64x64 (micro) | 0.7-1.2 | 0.2-0.4 GB/s | Vector efficiency      |
+| V1 | 512x512 (small) | 0.6-0.9 | 2-4 GB/s | Cache utilization      |
+| V1 | 2048x2048 (medium) | 0.5-0.8 | 4-6 GB/s | Memory bandwidth       |
+| **V2** | 64x64 (micro) | 0.8-1.4 | 0.2-0.5 GB/s | Vector efficiency      |
+| V2 | 512x512 (small) | 0.6-1.0 | 3-5 GB/s | SVE2 utilization       |
+| V2 | 2048x2048 (medium) | 0.6-1.0 | 5-7 GB/s | Memory bandwidth       |
 
 **Key patterns:**
 - **Micro matrices**: Instruction-level bottlenecks dominate (compiler optimizations most effective)
