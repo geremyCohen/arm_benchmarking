@@ -5,7 +5,56 @@ Compiler optimizations provide the highest return on investment for performance 
 
 This section covers Neoverse-specific compiler optimizations, from basic flags to advanced techniques like Profile-Guided Optimization (PGO) and Link-Time Optimization (LTO).
 
-## Basic Compiler Flags
+## Comprehensive Optimization Analysis
+
+Start by running a complete analysis of all compiler optimization combinations:
+
+```bash
+# Test all combinations of optimization levels, architecture flags, and matrix sizes
+./scripts/04/test-all-combinations.sh
+```
+
+This automatically tests every combination of:
+- **Optimization levels**: -O0, -O1, -O2, -O3
+- **Architecture targeting**: generic, native, Neoverse-specific
+- **Matrix sizes**: micro (64x64), small (512x512), medium (2048x2048)
+
+### Complete Performance Results
+
+**Example output on Neoverse V2 (top 20 combinations):**
+```
+| Rank  | GFLOPS   | Time(s) | Opt  | Architecture | Size   |
+|-------|----------|--------|------|--------------|--------|
+| 1     | 4.56     | 0.000  | -O2  | generic      | micro  |
+| 2     | 4.50     | 0.000  | -O2  | native       | micro  |
+| 3     | 4.49     | 0.000  | -O3  | generic      | micro  |
+| 4     | 4.49     | 0.000  | -O3  | native       | micro  |
+| 5     | 4.12     | 0.000  | -O1  | Neoverse-V2  | micro  |
+| 6     | 4.12     | 0.000  | -O1  | generic      | micro  |
+| 7     | 4.03     | 0.000  | -O1  | native       | micro  |
+| 8     | 3.73     | 0.000  | -O2  | Neoverse-V2  | micro  |
+| 9     | 3.73     | 0.000  | -O3  | Neoverse-V2  | micro  |
+| 10    | 2.59     | 0.104  | -O2  | Neoverse-V2  | small  |
+```
+
+### Key Performance Insights
+
+- **Best performance**: 4.56 GFLOPS (7.0x speedup over baseline)
+- **Micro matrices dominate**: Top 9 results are all micro-sized matrices
+- **-O2 often beats -O3**: Aggressive optimization can sometimes hurt performance
+- **Architecture targeting varies**: Generic flags sometimes outperform processor-specific ones
+- **Diminishing returns with size**: Medium matrices show minimal compiler optimization benefit
+
+### Optimization Strategy Recommendations
+
+Based on the comprehensive results:
+
+1. **For maximum performance**: Use -O2 with generic flags on cache-friendly workloads
+2. **For balanced optimization**: Use -O2 with Neoverse-specific targeting
+3. **For large matrices**: Focus on memory optimizations (covered in later sections) rather than compiler flags
+4. **For production code**: Test both -O2 and -O3 as results vary by workload
+
+## Advanced Compiler Optimizations
 
 ### Architecture-Specific Targeting
 

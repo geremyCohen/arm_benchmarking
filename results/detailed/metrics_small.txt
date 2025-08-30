@@ -1,27 +1,27 @@
 
  Performance counter stats for './baseline_matrix small':
 
-        2269010589      cycles:u                                                                (27.21%)
-        8246688011      instructions:u                   #    3.63  insn per cycle            
-                                                  #    0.14  stalled cycles per insn     (27.20%)
-        4295180465      cache-references:u                                                      (27.25%)
-         270677671      cache-misses:u                   #    6.30% of all cache refs           (18.20%)
-        4333727898      L1-dcache-loads:u                                                       (18.19%)
-         271404296      L1-dcache-load-misses:u          #    6.26% of all L1-dcache accesses   (18.20%)
-              8076      L1-icache-load-misses:u                                                 (18.20%)
+        2267268287      cycles:u                                                                (27.11%)
+        8259395855      instructions:u                   #    3.64  insn per cycle            
+                                                  #    0.14  stalled cycles per insn     (27.22%)
+        4292086126      cache-references:u                                                      (27.33%)
+         271208702      cache-misses:u                   #    6.32% of all cache refs           (18.26%)
+        4342768515      L1-dcache-loads:u                                                       (18.26%)
+         271190604      L1-dcache-load-misses:u          #    6.24% of all L1-dcache accesses   (18.26%)
+              7783      L1-icache-load-misses:u                                                 (18.26%)
    <not supported>      LLC-loads:u                                                           
    <not supported>      LLC-load-misses:u                                                     
-         272052108      branch-loads:u                                                          (18.20%)
-            540170      branch-load-misses:u                                                    (18.20%)
-           3154019      stalled-cycles-frontend:u        #    0.14% frontend cycles idle        (18.20%)
-        1175449789      stalled-cycles-backend:u         #   51.80% backend cycles idle         (18.16%)
+         271117611      branch-loads:u                                                          (18.24%)
+            540485      branch-load-misses:u                                                    (18.12%)
+           3152083      stalled-cycles-frontend:u        #    0.14% frontend cycles idle        (18.02%)
+        1175334550      stalled-cycles-backend:u         #   51.84% backend cycles idle         (18.03%)
                  0      context-switches:u                                                    
                  0      cpu-migrations:u                                                      
-               819      page-faults:u                                                         
+               818      page-faults:u                                                         
 
-       0.857540704 seconds time elapsed
+       0.854735223 seconds time elapsed
 
-       0.856525000 seconds user
+       0.853694000 seconds user
        0.001000000 seconds sys
 
 

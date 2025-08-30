@@ -1,4 +1,4 @@
-O1: 2.41 GFLOPS (0.111s)
-O2: 2.35 GFLOPS (0.114s)
+O1: 2.42 GFLOPS (0.111s)
+O2: 2.34 GFLOPS (0.115s)
 O3: 2.37 GFLOPS (0.113s)
-neoverse: 2.56 GFLOPS (0.105s)
+neoverse: 2.58 GFLOPS (0.104s)
