@@ -1,0 +1,2 @@
+Backend stalls: 53.34% (>50% indicates memory-bound)
+Instructions per cycle: 3.66

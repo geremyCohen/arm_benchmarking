@@ -1,0 +1,14 @@
+
+ Performance counter stats for './baseline_matrix small':
+
+        2280235339      cycles:u                                                              
+        8341285638      instructions:u                   #    3.66  insn per cycle            
+                                                  #    0.15  stalled cycles per insn   
+        1216327839      stalled-cycles-backend:u         #   53.34% backend cycles idle       
+
+       0.819391590 seconds time elapsed
+
+       0.817354000 seconds user
+       0.002000000 seconds sys
+
+
