@@ -87,6 +87,15 @@ medium: [varies by system]
 
 ## Understanding Baseline Metrics
 
+To see detailed performance metrics referenced below:
+
+```bash
+# Get comprehensive performance analysis for any matrix size
+./scripts/03/detailed-metrics.sh small
+```
+
+This shows all the metrics discussed in this section with actual values from your system.
+
 ### Performance Metrics
 
 **GFLOPS (Giga Floating-Point Operations Per Second)**
