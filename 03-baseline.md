@@ -112,45 +112,6 @@ medium: [varies by system]
 
 > **📝 Next**: These baseline numbers will be automatically compared against optimizations in sections 04+.
 
-## Expected Baseline Output
-
-```
-=== Neoverse Optimization Tutorial - Baseline Measurement ===
-
-Hardware: Neoverse N1, 4 cores, 8GB RAM
-Compiler: GCC 11.2.0, flags: -O0 -g
-
-Matrix Size: 2048x2048 (Medium)
-Memory Usage: 48.0 MB
-Iterations: 5
-
-Running baseline matrix multiplication...
-
-Results:
-  Average Time: 45.23 seconds
-  Throughput: 0.38 GFLOPS
-  Memory Bandwidth: 2.1 GB/s
-  
-Performance Counters:
-  Instructions: 34,359,738,368
-  Cycles: 108,589,934,592
-  IPC: 0.32
-  L1 Cache Misses: 67,108,864 (25.0%)
-  L2 Cache Misses: 16,777,216 (6.25%)
-  L3 Cache Misses: 4,194,304 (1.56%)
-  Branch Mispredictions: 1,048,576 (0.39%)
-
-Cache Analysis:
-  L1D Hit Rate: 75.0%
-  L2 Hit Rate: 93.75%
-  L3 Hit Rate: 98.44%
-  Memory Stall Cycles: 54,294,967,296 (50.0%)
-
-Memory Access Pattern:
-  Sequential Access: 25%
-  Random Access: 75%
-  Prefetch Effectiveness: 12%
-```
 
 ## Understanding Baseline Metrics
 
