@@ -77,7 +77,7 @@ fi
 # LLC (Last Level Cache)
 llc_loads=$(grep "LLC-loads:u" $metrics_file | awk '{print $1}' | tr -d ',')
 llc_misses=$(grep "LLC-load-misses:u" $metrics_file | awk '{print $1}' | tr -d ',')
-if [ ! -z "$llc_loads" ] && [ ! -z "$llc_misses" ] && [ "$llc_loads" -gt 0 ]; then
+if [ ! -z "$llc_loads" ] && [ ! -z "$llc_misses" ] && [ "$llc_loads" != "" ] && [ "$llc_loads" -gt 0 ] 2>/dev/null; then
     llc_miss_rate=$(echo "scale=2; $llc_misses * 100 / $llc_loads" | bc -l)
     llc_hit_rate=$(echo "scale=2; 100 - $llc_miss_rate" | bc -l)
     echo "Last Level Cache Hit Rate: ${llc_hit_rate}%"
@@ -86,7 +86,7 @@ fi
 # Branch prediction
 branch_loads=$(grep "branch-loads:u" $metrics_file | awk '{print $1}' | tr -d ',')
 branch_misses=$(grep "branch-load-misses:u" $metrics_file | awk '{print $1}' | tr -d ',')
-if [ ! -z "$branch_loads" ] && [ ! -z "$branch_misses" ] && [ "$branch_loads" -gt 0 ]; then
+if [ ! -z "$branch_loads" ] && [ ! -z "$branch_misses" ] && [ "$branch_loads" != "" ] && [ "$branch_loads" -gt 0 ] 2>/dev/null; then
     branch_miss_rate=$(echo "scale=2; $branch_misses * 100 / $branch_loads" | bc -l)
     echo
     echo "### Branch Prediction"
