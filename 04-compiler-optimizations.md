@@ -70,10 +70,10 @@ The matrix test shows performance across all combinations:
 ```
 | Optimization | Generic  | Native   | Neoverse | Best     |
 |--------------|----------|----------|----------|----------|
-| -O0 (baseline) | 0.66     | 0.66     | 0.66     | 0.66x    |
-| -O1          | 2.42     | 2.42     | 2.41     | 3.6x     |
-| -O2          | 2.36     | 2.36     | 2.59     | 3.9x     |
-| -O3          | 2.36     | 2.36     | 2.59     | 3.9x     |
+| -O0 (baseline) | 0.65     | 0.65     | 0.65     | 0.65x    |
+| -O1          | 2.40     | 2.42     | 2.41     | 3.7x     |
+| -O2          | 2.36     | 2.36     | 2.58     | 3.9x     |
+| -O3          | 2.37     | 2.37     | 2.59     | 3.9x     |
 ```
 
 ### Performance Across Matrix Sizes
@@ -89,8 +89,8 @@ To see how compiler optimizations scale with problem size:
 ```
 | Size | Baseline (GFLOPS) | Optimized (GFLOPS) | Speedup | Time Reduction |
 |------|-------------------|---------------------|---------|----------------|
-| micro | 0.73              | 3.73                | 5.1x    | 100.0%         |
-| small | 0.66              | 2.57                | 3.8x    | 70.0%          |
+| micro | 0.74              | 3.73                | 5.0x    | 100.0%         |
+| small | 0.66              | 2.59                | 3.9x    | 70.0%          |
 | medium | 0.59              | 0.68                | 1.1x    | 10.0%          |
 ```
 
@@ -104,10 +104,10 @@ Detected: Neoverse-V2
 Using flags: -march=armv9-a+sve2+bf16+i8mm -mtune=neoverse-v2
 
 === Performance Comparison ===
-  -O1: 2.42 GFLOPS (3.6x speedup)
-  -O2: 2.36 GFLOPS (3.5x speedup)  
-  -O3: 2.35 GFLOPS (3.5x speedup)
-  -O3 + Neoverse flags: 2.57 GFLOPS (3.8x speedup)
+  -O1: 2.42 GFLOPS (3.7x speedup)
+  -O2: 2.34 GFLOPS (3.6x speedup)  
+  -O3: 2.37 GFLOPS (3.6x speedup)
+  -O3 + Neoverse flags: 2.58 GFLOPS (3.9x speedup)
 ```
 
 **Key insights:**
