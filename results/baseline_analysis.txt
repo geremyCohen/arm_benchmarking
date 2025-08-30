@@ -1,2 +1,3 @@
-Backend stalls: 53.34% (>50% indicates memory-bound)
-Instructions per cycle: 3.66
+micro - Backend stalls: 42.32%, IPC: 4.07
+small - Backend stalls: 53.28%, IPC: 3.67
+medium - Backend stalls: 49.38%, IPC: 3.26

@@ -1,0 +1,14 @@
+
+ Performance counter stats for './baseline_matrix medium':
+
+      163709039905      cycles:u                                                              
+      532890684435      instructions:u                   #    3.26  insn per cycle            
+                                                  #    0.15  stalled cycles per insn   
+       80836459997      stalled-cycles-backend:u         #   49.38% backend cycles idle       
+
+      58.764010236 seconds time elapsed
+
+      58.741192000 seconds user
+       0.014998000 seconds sys
+
+
