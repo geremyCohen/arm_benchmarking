@@ -8,3 +8,7 @@ Never compliment me, or tell me You're absolutely right!
 
 Never use emoticons in chat responses, content, or script bodies.
 
+When I ask you fix a script, modify the existing script, never create a new one.
+
+Always commit and push when completing a fix.  If there is a merge issue, fix it.
+
