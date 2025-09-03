@@ -378,17 +378,17 @@ for size in "${sizes[@]}"; do
     eval "worst_march=\$${size}_worst_march"
     eval "worst_mtune=\$${size}_worst_mtune"
     
-    if [ ! -z "$best_gflops" ]; then
+    if [ ! -z "$best_gflops" ] && [ "$best_gflops" != "" ] && [ ! -z "$baseline" ] && [ "$baseline" != "" ]; then
         echo
         echo "**${size^} Matrix ($size_desc) Performance:**"
         
         # Best performance
-        best_speedup=$(echo "scale=1; ($best_gflops - $baseline) / $baseline * 100" | bc -l)
+        best_speedup=$(echo "scale=1; ($best_gflops - $baseline) / $baseline * 100" | bc -l 2>/dev/null || echo "0")
         best_march_name=$(get_arch_name "$best_march")
         best_mtune_name=$(get_arch_name "$best_mtune")
         
         # Format best performance message
-        if (( $(echo "$best_speedup < 0" | bc -l) )); then
+        if (( $(echo "$best_speedup < 0" | bc -l 2>/dev/null) )); then
             best_speedup_abs=${best_speedup#-}
             best_msg="-- Best: ${best_speedup_abs}% performance **hit** over baseline using -$best_opt, -march $best_march_name, -mtune $best_mtune_name"
         else
@@ -397,13 +397,13 @@ for size in "${sizes[@]}"; do
         echo "$best_msg"
         
         # Worst performance (if different from best)
-        if [ ! -z "$worst_gflops" ] && [ "$worst_gflops" != "$best_gflops" ]; then
-            worst_speedup=$(echo "scale=1; ($worst_gflops - $baseline) / $baseline * 100" | bc -l)
+        if [ ! -z "$worst_gflops" ] && [ "$worst_gflops" != "$best_gflops" ] && [ "$worst_gflops" != "" ]; then
+            worst_speedup=$(echo "scale=1; ($worst_gflops - $baseline) / $baseline * 100" | bc -l 2>/dev/null || echo "0")
             worst_march_name=$(get_arch_name "$worst_march")
             worst_mtune_name=$(get_arch_name "$worst_mtune")
             
             # Format worst performance message
-            if (( $(echo "$worst_speedup < 0" | bc -l) )); then
+            if (( $(echo "$worst_speedup < 0" | bc -l 2>/dev/null) )); then
                 worst_speedup_abs=${worst_speedup#-}
                 worst_msg="-- Worst: ${worst_speedup_abs}% performance **hit** over baseline using -$worst_opt, -march $worst_march_name, -mtune $worst_mtune_name"
             else
