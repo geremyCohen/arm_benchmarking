@@ -246,6 +246,13 @@ for target_size in "${sizes[@]}"; do
     
     rank=1
     best_gflops_for_size=""
+    best_opt_for_size=""
+    best_march_for_size=""
+    best_mtune_for_size=""
+    worst_gflops_for_size=""
+    worst_opt_for_size=""
+    worst_march_for_size=""
+    worst_mtune_for_size=""
     autodetect_gflops_for_size=""
     
     for result in "${sorted[@]}"; do
@@ -254,6 +261,17 @@ for target_size in "${sizes[@]}"; do
             # Track best performance for this size
             if [ -z "$best_gflops_for_size" ]; then
                 best_gflops_for_size="$gflops"
+                best_opt_for_size="$opt"
+                best_march_for_size="$march"
+                best_mtune_for_size="$mtune"
+            fi
+            
+            # Track worst performance for this size (last non-O0 result)
+            if [ "$opt" != "O0" ]; then
+                worst_gflops_for_size="$gflops"
+                worst_opt_for_size="$opt"
+                worst_march_for_size="$march"
+                worst_mtune_for_size="$mtune"
             fi
             
             # Track best Autodetect performance for this size (both march and mtune native)
@@ -288,72 +306,112 @@ for target_size in "${sizes[@]}"; do
         fi
     done
     
-    # Add insights for this matrix size
-    echo
-    echo "**${target_size^} Matrix Insights:**"
-    echo "• Best performance: $best_gflops_for_size GFLOPS"
-    
-    if [ ! -z "$autodetect_gflops_for_size" ]; then
-        # Check if autodetect equals the best performance (exact match)
-        if [ "$autodetect_gflops_for_size" = "$best_gflops_for_size" ]; then
-            echo "• Choosing Autodetect for -march and -mtune was optimal."
-        else
-            # Calculate percentage improvement available (how much better the best is than autodetect)
-            percent_improvement=$(echo "scale=1; ($best_gflops_for_size - $autodetect_gflops_for_size) / $autodetect_gflops_for_size * 100" | bc -l)
-            
-            # Only show message if there's actually a meaningful difference (>0.1%)
-            if (( $(echo "$percent_improvement > 0.1" | bc -l) )); then
-                # Find what flags achieved the best performance
-                best_result=$(printf '%s\n' "${sorted[@]}" | grep "|$target_size$" | head -1)
-                best_march=$(echo "$best_result" | cut -d'|' -f5)
-                best_mtune=$(echo "$best_result" | cut -d'|' -f6)
-                
-                case $best_march in
-                    "none") march_display="None" ;;
-                    "native") march_display="Autodetect" ;;
-                    "neoverse") march_display="V2" ;;
-                esac
-                
-                case $best_mtune in
-                    "none") mtune_display="None" ;;
-                    "native") mtune_display="Autodetect" ;;
-                    "neoverse") mtune_display="V2" ;;
-                esac
-                
-                echo "• Autodetect performance is worse by ${percent_improvement}% than using -march $march_display and -mtune $mtune_display CFLAGS manually."
-            else
-                echo "• Choosing Autodetect for -march and -mtune was optimal."
-            fi
-        fi
-    else
-        echo "• Autodetect performance: Not available"
-    fi
+    # Store data for consolidated insights
+    eval "${target_size}_best_gflops=\"$best_gflops_for_size\""
+    eval "${target_size}_best_opt=\"$best_opt_for_size\""
+    eval "${target_size}_best_march=\"$best_march_for_size\""
+    eval "${target_size}_best_mtune=\"$best_mtune_for_size\""
+    eval "${target_size}_worst_gflops=\"$worst_gflops_for_size\""
+    eval "${target_size}_worst_opt=\"$worst_opt_for_size\""
+    eval "${target_size}_worst_march=\"$worst_march_for_size\""
+    eval "${target_size}_worst_mtune=\"$worst_mtune_for_size\""
+    eval "${target_size}_autodetect_gflops=\"$autodetect_gflops_for_size\""
     
     echo
 done
 
-echo
 echo "=== Key Insights ==="
 
 # Get baseline performance for comparison
-baseline_gflops=$(grep "small:" results/baseline_summary.txt | head -1 | awk '{print $2}')
-best_gflops=$(echo "${sorted[0]}" | cut -d'|' -f2)
-best_speedup=$(echo "scale=1; $best_gflops / $baseline_gflops" | bc -l)
+baseline_micro=$(grep "micro:" results/baseline_summary.txt 2>/dev/null | awk '{print $2}' || echo "0.74")
+baseline_small=$(grep "small:" results/baseline_summary.txt 2>/dev/null | awk '{print $2}' || echo "0.66")
+baseline_medium=$(grep "medium:" results/baseline_summary.txt 2>/dev/null | awk '{print $2}' || echo "0.56")
 
-echo "• Best performance: $best_gflops GFLOPS (${best_speedup}x speedup over baseline)"
+# Function to convert arch names to readable format
+get_arch_name() {
+    case $1 in
+        "none") echo "None" ;;
+        "native") echo "Autodetect" ;;
+        "neoverse") echo "V2" ;;
+        *) echo "$1" ;;
+    esac
+}
 
-echo "• Top performers by optimization level:"
-for opt in O3 O2 O1; do
-    top_opt=$(printf '%s\n' "${sorted[@]}" | grep "|$opt|" | head -1)
-    if [ ! -z "$top_opt" ]; then
-        gflops=$(echo "$top_opt" | cut -d'|' -f2)
-        arch=$(echo "$top_opt" | cut -d'|' -f5)
-        size=$(echo "$top_opt" | cut -d'|' -f6)
-        echo "  -$opt: $gflops GFLOPS ($arch, $size)"
+# Function to get default compile performance (O0 with no flags) compared to best
+get_default_performance() {
+    local size=$1
+    local best_gflops=$2
+    
+    # Find O0 with none/none performance
+    local default_gflops=$(printf '%s\n' "${sorted[@]}" | grep "|O0|none|none|$size$" | head -1 | cut -d'|' -f2)
+    
+    if [ ! -z "$default_gflops" ]; then
+        local change=$(echo "scale=1; ($default_gflops - $best_gflops) / $best_gflops * 100" | bc -l)
+        if (( $(echo "$change < 0" | bc -l) )); then
+            local change_abs=${change#-}
+            echo "${change_abs}% performance hit"
+        elif (( $(echo "$change > 1" | bc -l) )); then
+            echo "${change}% performance gain"
+        else
+            echo "no significant change"
+        fi
+    else
+        echo "no data available"
+    fi
+}
+
+for size in "${sizes[@]}"; do
+    case $size in
+        "micro") baseline=$baseline_micro; size_desc="64x64" ;;
+        "small") baseline=$baseline_small; size_desc="512x512" ;;
+        "medium") baseline=$baseline_medium; size_desc="2048x2048" ;;
+    esac
+    
+    # Get stored values
+    eval "best_gflops=\$${size}_best_gflops"
+    eval "best_opt=\$${size}_best_opt"
+    eval "best_march=\$${size}_best_march"
+    eval "best_mtune=\$${size}_best_mtune"
+    eval "worst_gflops=\$${size}_worst_gflops"
+    eval "worst_opt=\$${size}_worst_opt"
+    eval "worst_march=\$${size}_worst_march"
+    eval "worst_mtune=\$${size}_worst_mtune"
+    
+    if [ ! -z "$best_gflops" ]; then
+        echo
+        echo "**${size^} Matrix ($size_desc) Performance:**"
+        
+        # Best performance
+        best_speedup=$(echo "scale=1; ($best_gflops - $baseline) / $baseline * 100" | bc -l)
+        best_march_name=$(get_arch_name "$best_march")
+        best_mtune_name=$(get_arch_name "$best_mtune")
+        
+        # Format best performance message
+        if (( $(echo "$best_speedup < 0" | bc -l) )); then
+            best_speedup_abs=${best_speedup#-}
+            best_msg="-- Best: ${best_speedup_abs}% performance **hit** over baseline using -$best_opt, -march $best_march_name, -mtune $best_mtune_name"
+        else
+            best_msg="-- Best: ${best_speedup}% performance **gain** over baseline using -$best_opt, -march $best_march_name, -mtune $best_mtune_name"
+        fi
+        echo "$best_msg"
+        
+        # Worst performance (if different from best)
+        if [ ! -z "$worst_gflops" ] && [ "$worst_gflops" != "$best_gflops" ]; then
+            worst_speedup=$(echo "scale=1; ($worst_gflops - $baseline) / $baseline * 100" | bc -l)
+            worst_march_name=$(get_arch_name "$worst_march")
+            worst_mtune_name=$(get_arch_name "$worst_mtune")
+            
+            # Format worst performance message
+            if (( $(echo "$worst_speedup < 0" | bc -l) )); then
+                worst_speedup_abs=${worst_speedup#-}
+                worst_msg="-- Worst: ${worst_speedup_abs}% performance **hit** over baseline using -$worst_opt, -march $worst_march_name, -mtune $worst_mtune_name"
+            else
+                worst_msg="-- Worst: ${worst_speedup}% performance **gain** over baseline using -$worst_opt, -march $worst_march_name, -mtune $worst_mtune_name"
+            fi
+            echo "$worst_msg"
+        fi
     fi
 done
-echo "• Matrix size impact: Smaller matrices benefit more from compiler optimizations"
-echo "• Architecture targeting: $NEOVERSE_TYPE-specific flags provide best performance"
 
 echo
 echo "Complete results saved to results/comprehensive/ directory"
