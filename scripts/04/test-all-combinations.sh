@@ -1,5 +1,6 @@
 #!/bin/bash
 # test-all-combinations.sh - Test all combinations with real-time status using temp files
+# Uses O0/None/None results as baseline for performance comparisons (no separate baseline script needed)
 
 echo "=== Comprehensive Compiler Optimization Analysis ==="
 echo
@@ -322,10 +323,10 @@ done
 
 echo "=== Key Insights ==="
 
-# Get baseline performance for comparison
-baseline_micro=$(grep "micro:" results/baseline_summary.txt 2>/dev/null | awk '{print $2}' || echo "0.74")
-baseline_small=$(grep "small:" results/baseline_summary.txt 2>/dev/null | awk '{print $2}' || echo "0.66")
-baseline_medium=$(grep "medium:" results/baseline_summary.txt 2>/dev/null | awk '{print $2}' || echo "0.56")
+# Get baseline performance from O0/None/None results in our test data
+baseline_micro=$(printf '%s\n' "${sorted[@]}" | grep "|O0|none|none|micro$" | head -1 | cut -d'|' -f2)
+baseline_small=$(printf '%s\n' "${sorted[@]}" | grep "|O0|none|none|small$" | head -1 | cut -d'|' -f2)
+baseline_medium=$(printf '%s\n' "${sorted[@]}" | grep "|O0|none|none|medium$" | head -1 | cut -d'|' -f2)
 
 # Function to convert arch names to readable format
 get_arch_name() {
