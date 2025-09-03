@@ -1,3 +1,2 @@
-micro: 0.75 GFLOPS (0.001s)
-small: 0.65 GFLOPS (0.410s)
-medium: 0.59 GFLOPS (29.355s)
+micro: 0.74 GFLOPS (0.001s)
+small: 0.66 GFLOPS (0.407s)

@@ -1,3 +1,2 @@
-micro - Backend stalls: 42.32%, IPC: 4.07
-small - Backend stalls: 53.28%, IPC: 3.67
-medium - Backend stalls: 49.38%, IPC: 3.26
+micro - Backend stalls: 42.83%, IPC: 4.05
+small - Backend stalls: 53.26%, IPC: 3.65

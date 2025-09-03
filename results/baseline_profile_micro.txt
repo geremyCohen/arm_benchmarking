@@ -1,14 +1,14 @@
 
  Performance counter stats for './baseline_matrix micro':
 
-           4096579      cycles:u                                                              
-          16673688      instructions:u                   #    4.07  insn per cycle            
-                                                  #    0.10  stalled cycles per insn   
-           1733781      stalled-cycles-backend:u         #   42.32% backend cycles idle       
+           4113764      cycles:u                                                              
+          16674958      instructions:u                   #    4.05  insn per cycle            
+                                                  #    0.11  stalled cycles per insn   
+           1761864      stalled-cycles-backend:u         #   42.83% backend cycles idle       
 
-       0.002066791 seconds time elapsed
+       0.002107952 seconds time elapsed
 
-       0.002108000 seconds user
+       0.002153000 seconds user
        0.000000000 seconds sys
 
 
