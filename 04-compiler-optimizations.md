@@ -14,6 +14,9 @@ Start by running a complete analysis of all compiler optimization combinations:
 ./scripts/04/test-all-combinations.sh
 ```
 
+A baseline is established with no optimizations (mtune, march, or -O flags). The script then tests all combinations of optimization levels, architecture targeting, and matrix sizes to provide a comprehensive performance overview.
+
+
 This automatically tests every combination of:
 - **Optimization levels**: -O0, -O1, -O2, -O3
 - **Architecture targeting**: generic, native, Neoverse-specific
@@ -37,22 +40,13 @@ This automatically tests every combination of:
 | 10    | 2.59     | 0.104  | -O2  | Neoverse-V2  | small  |
 ```
 
-### Key Performance Insights
 
-- **Best performance**: 4.52 GFLOPS (6.9x speedup over baseline)
-- **Micro matrices dominate**: Top 9 results are all micro-sized matrices
-- **-O2 often beats -O3**: Aggressive optimization can sometimes hurt performance
-- **Architecture targeting varies**: Generic flags sometimes outperform processor-specific ones
-- **Diminishing returns with size**: Medium matrices show minimal compiler optimization benefit
 
+### Expect unexpected Results (sometimes)
+
+You may think that always compiling with optimization level of -O3 and with Neoverse-specific flags will always provide the best results, but actual benchmark results may show a more nuanced picture.  For example, aggressive optimization may sometimes hurt performance, absence of compile options sometimes outperforms processor-specific ones, etc.
 ### Optimization Strategy Recommendations
 
-Based on the comprehensive results:
-
-1. **For maximum performance**: Use -O2 with generic flags on cache-friendly workloads
-2. **For balanced optimization**: Use -O2 with Neoverse-specific targeting
-3. **For memory-bound workloads**: Compiler optimizations have limited impact (1.1x vs 6.9x)
-4. **For production code**: Test both -O2 and -O3 as results vary by workload
 
 ## Advanced Compiler Optimizations
 

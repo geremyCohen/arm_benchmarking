@@ -58,31 +58,7 @@ The tutorial tests across multiple matrix sizes to understand performance charac
 | **Large** | 8192x8192 | 67,108,864 | ~768MB | Exceeds most L3 caches | Test memory bandwidth optimization |
 | **Huge** | 16384x16384 | 268,435,456 | ~3GB | Tests virtual memory | Test THP and NUMA optimization |
 
-## Running Baseline Tests
 
-Execute this single command to establish your complete performance baseline:
-
-```bash
-# Complete baseline collection: compile, test, profile, and save results
-./scripts/03/collect-baseline.sh
-```
-
-
-
-### Your Baseline Results
-After running the collection script, you'll have:
-- `results/baseline_summary.txt` - Performance summary for comparison
-- Individual result files for detailed analysis
-- Profiling data showing optimization opportunities
-
-**Example baseline on Neoverse V2:**
-```
-micro: 0.73 GFLOPS (0.001s)
-small: 0.63 GFLOPS (0.425s)  
-medium: [varies by system]
-```
-
-> **📝 Next**: These baseline numbers will be automatically compared against optimizations in sections 04+.
 
 
 ## Understanding Baseline Metrics
