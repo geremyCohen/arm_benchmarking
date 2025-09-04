@@ -90,19 +90,33 @@ done
         echo "Progress: $complete/$total complete, $running running, $pending pending"
         echo
         
-        # Exit if all complete
-        if [ $complete -eq $total ] && [ $total -gt 0 ]; then
-            echo "🎉 All benchmarks completed!"
-            sleep 2
-            break
-        fi
-        
-        printf "| %-12s | %-12s | %-12s | %-8s | %-10s |\n" "Optimization" "-march" "-mtune" "Size" "Status"
-        printf "|--------------|--------------|--------------|----------|------------|\n"
+        printf "| %-12s | %-12s | %-12s | %-8s | %-10s | %-12s |\n" "Optimization" "-march" "-mtune" "Size" "Status" "Elapsed Time"
+        printf "|--------------|--------------|--------------|----------|------------|--------------|\n"
         
         # Group by size
         for size in "${sizes[@]}"; do
-            echo "### ${size^} Matrix"
+            # Check if there are any active (non-complete) tests for this size first
+            has_active_tests=false
+            for opt in "${opt_levels[@]}"; do
+                for march in "${march_options[@]}"; do
+                    for mtune in "${mtune_options[@]}"; do
+                        status_file="$STATUS_DIR/${opt}_${march}_${mtune}_${size}"
+                        if [ -f "$status_file" ]; then
+                            status=$(cat "$status_file")
+                            if [ "$status" != "Complete" ]; then
+                                has_active_tests=true
+                                break 3
+                            fi
+                        fi
+                    done
+                done
+            done
+            
+            # Only show heading and tests if there are active tests
+            if [ "$has_active_tests" = true ]; then
+                echo "### ${size^} Matrix"
+            fi
+            
             for opt in "${opt_levels[@]}"; do
                 for march in "${march_options[@]}"; do
                     for mtune in "${mtune_options[@]}"; do
@@ -110,25 +124,35 @@ done
                         if [ -f "$status_file" ]; then
                             status=$(cat "$status_file")
                             
-                            case $march in
-                                "none") march_display="None" ;;
-                                "native") march_display="Autodetect" ;;
-                                "neoverse") march_display="V2" ;;
-                            esac
-                            
-                            case $mtune in
-                                "none") mtune_display="None" ;;
-                                "native") mtune_display="Autodetect" ;;
-                                "neoverse") mtune_display="V2" ;;
-                            esac
-                            
-                            case $status in
-                                "Pending") status_display="⏳ Pending" ;;
-                                "Running") status_display="🔄 Running" ;;
-                                "Complete") status_display="✅ Complete" ;;
-                            esac
-                            
-                            printf "| %-12s | %-12s | %-12s | %-8s | %-10s |\n" "-$opt" "$march_display" "$mtune_display" "$size" "$status_display"
+                            # Only show pending and running, skip completed
+                            if [ "$status" != "Complete" ]; then
+                                case $march in
+                                    "none") march_display="None" ;;
+                                    "native") march_display="Autodetect" ;;
+                                    "neoverse") march_display="V2" ;;
+                                esac
+                                
+                                case $mtune in
+                                    "none") mtune_display="None" ;;
+                                    "native") mtune_display="Autodetect" ;;
+                                    "neoverse") mtune_display="V2" ;;
+                                esac
+                                
+                                # Calculate elapsed time
+                                if [ "$status" = "Pending" ]; then
+                                    elapsed_time="0s"
+                                    status_display="⏳ Pending"
+                                elif [ "$status" = "Running" ]; then
+                                    # Get start time from file modification time
+                                    start_time=$(stat -c %Y "$status_file" 2>/dev/null || echo $(date +%s))
+                                    current_time=$(date +%s)
+                                    elapsed=$((current_time - start_time))
+                                    elapsed_time="${elapsed}s"
+                                    status_display="🔄 Running"
+                                fi
+                                
+                                printf "| %-12s | %-12s | %-12s | %-8s | %-10s | %-12s |\n" "-$opt" "$march_display" "$mtune_display" "$size" "$status_display" "$elapsed_time"
+                            fi
                         fi
                     done
                 done
@@ -147,16 +171,34 @@ done
 MONITOR_PID=$!
 
 # Create results directory
-mkdir -p results/comprehensive /tmp/combo_results_$$
+mkdir -p results/comprehensive
+mkdir -p /tmp/combo_results_$$
+
+# Calculate max parallel jobs (cores - 1, minimum 1)
+MAX_JOBS=$(($(nproc) - 1))
+if [ $MAX_JOBS -lt 1 ]; then
+    MAX_JOBS=1
+fi
+
+echo "Running tests with maximum $MAX_JOBS parallel jobs..."
+echo
+
+# Function to wait for job slots
+wait_for_slot() {
+    while [ $(grep -l "Running" "$STATUS_DIR"/* 2>/dev/null | wc -l) -ge $MAX_JOBS ]; do
+        sleep 0.1
+    done
+}
 
 # Results array to store all combinations
 declare -a all_results
 
-# Test all combinations in parallel
-for opt in "${opt_levels[@]}"; do
-    for march in "${march_options[@]}"; do
-        for mtune in "${mtune_options[@]}"; do
-            for size in "${sizes[@]}"; do
+# Test micro and small sizes first
+for size in micro small; do
+    if [[ " ${sizes[@]} " =~ " ${size} " ]]; then
+        for opt in "${opt_levels[@]}"; do
+            for march in "${march_options[@]}"; do
+                for mtune in "${mtune_options[@]}"; do
                 # Build flags
                 flags="-$opt"
                 
@@ -183,6 +225,9 @@ for opt in "${opt_levels[@]}"; do
                 march_desc="$march"
                 mtune_desc="$mtune"
                 
+                # Wait for available job slot
+                wait_for_slot
+                
                 # Run test in background
                 (
                     combo_id="${opt}_${march}_${mtune}_${size}"
@@ -201,10 +246,10 @@ for opt in "${opt_levels[@]}"; do
                         
                         if [ ! -z "$gflops" ]; then
                             sort_key=$(printf "%08.2f" $(echo "$gflops * 100" | bc -l) | tr '.' '_')
-                            echo "$sort_key|$gflops|$time|$opt|$march_desc|$mtune_desc|$size" > /tmp/combo_results_$$/${opt}_${march}_${mtune}_${size}
+                            echo "$sort_key|$gflops|$time|$opt|$march_desc|$mtune_desc|$size" > /tmp/combo_results_$$/${opt}_${march}_${mtune}_${size} 2>/dev/null
                         fi
                         
-                        rm -f $exe_name
+                        rm -f $exe_name 2>/dev/null
                     fi
                     
                     # Add delay before marking complete
@@ -214,7 +259,182 @@ for opt in "${opt_levels[@]}"; do
             done
         done
     done
+fi
 done
+
+# Wait for micro and small to complete
+wait
+
+# Kill the monitor process and restart it for medium tests
+kill $MONITOR_PID 2>/dev/null
+wait $MONITOR_PID 2>/dev/null
+
+# Now run medium if requested
+if [[ " ${sizes[@]} " =~ " medium " ]]; then
+    # Restart monitor for medium tests
+    (
+        # Hide cursor and save position
+        printf "\033[?25l\033[s"
+        
+        while [ -d "$STATUS_DIR" ]; do
+            # Restore cursor position instead of clearing screen
+            printf "\033[u"
+            
+            echo "=== Benchmark Status Dashboard ==="
+            echo "Updated: $(date '+%H:%M:%S')"
+            echo
+            
+            # Count status
+            total=$(ls "$STATUS_DIR" 2>/dev/null | wc -l)
+            pending=$(grep -l "Pending" "$STATUS_DIR"/* 2>/dev/null | wc -l)
+            running=$(grep -l "Running" "$STATUS_DIR"/* 2>/dev/null | wc -l)
+            complete=$(grep -l "Complete" "$STATUS_DIR"/* 2>/dev/null | wc -l)
+            
+            echo "Progress: $complete/$total complete, $running running, $pending pending"
+            echo
+            
+            printf "| %-12s | %-12s | %-12s | %-8s | %-10s | %-12s |\n" "Optimization" "-march" "-mtune" "Size" "Status" "Elapsed Time"
+            printf "|--------------|--------------|--------------|----------|------------|--------------|\n"
+            
+            # Group by size
+            for size in "${sizes[@]}"; do
+                # Check if there are any active (non-complete) tests for this size first
+                has_active_tests=false
+                for opt in "${opt_levels[@]}"; do
+                    for march in "${march_options[@]}"; do
+                        for mtune in "${mtune_options[@]}"; do
+                            status_file="$STATUS_DIR/${opt}_${march}_${mtune}_${size}"
+                            if [ -f "$status_file" ]; then
+                                status=$(cat "$status_file")
+                                if [ "$status" != "Complete" ]; then
+                                    has_active_tests=true
+                                    break 3
+                                fi
+                            fi
+                        done
+                    done
+                done
+                
+                # Only show heading and tests if there are active tests
+                if [ "$has_active_tests" = true ]; then
+                    echo "### ${size^} Matrix"
+                fi
+                
+                for opt in "${opt_levels[@]}"; do
+                    for march in "${march_options[@]}"; do
+                        for mtune in "${mtune_options[@]}"; do
+                            status_file="$STATUS_DIR/${opt}_${march}_${mtune}_${size}"
+                            if [ -f "$status_file" ]; then
+                                status=$(cat "$status_file")
+                                
+                                # Only show pending and running, skip completed
+                                if [ "$status" != "Complete" ]; then
+                                    case $march in
+                                        "none") march_display="None" ;;
+                                        "native") march_display="Autodetect" ;;
+                                        "neoverse") march_display="V2" ;;
+                                    esac
+                                    
+                                    case $mtune in
+                                        "none") mtune_display="None" ;;
+                                        "native") mtune_display="Autodetect" ;;
+                                        "neoverse") mtune_display="V2" ;;
+                                    esac
+                                    
+                                    # Calculate elapsed time
+                                    if [ "$status" = "Pending" ]; then
+                                        elapsed_time="0s"
+                                        status_display="⏳ Pending"
+                                    elif [ "$status" = "Running" ]; then
+                                        # Get start time from file modification time
+                                        start_time=$(stat -c %Y "$status_file" 2>/dev/null || echo $(date +%s))
+                                        current_time=$(date +%s)
+                                        elapsed=$((current_time - start_time))
+                                        elapsed_time="${elapsed}s"
+                                        status_display="🔄 Running"
+                                    fi
+                                    
+                                    printf "| %-12s | %-12s | %-12s | %-8s | %-10s | %-12s |\n" "-$opt" "$march_display" "$mtune_display" "$size" "$status_display" "$elapsed_time"
+                                fi
+                            fi
+                        done
+                    done
+                done
+            done
+            
+            echo
+            sleep 1
+        done
+        
+        # Restore cursor
+        printf "\033[?25h"
+    ) &
+    MONITOR_PID=$!
+
+    for opt in "${opt_levels[@]}"; do
+        for march in "${march_options[@]}"; do
+            for mtune in "${mtune_options[@]}"; do
+                # Build flags
+                flags="-$opt"
+                
+                # Add march flag
+                case $march in
+                    "native")
+                        flags="$flags -march=native"
+                        ;;
+                    "neoverse")
+                        flags="$flags -march=$MARCH_SPECIFIC"
+                        ;;
+                esac
+                
+                # Add mtune flag
+                case $mtune in
+                    "native")
+                        flags="$flags -mtune=native"
+                        ;;
+                    "neoverse")
+                        flags="$flags -mtune=$MTUNE_SPECIFIC"
+                        ;;
+                esac
+                
+                march_desc="$march"
+                mtune_desc="$mtune"
+                
+                # Wait for available job slot
+                wait_for_slot
+                
+                # Run test in background
+                (
+                    combo_id="${opt}_${march}_${mtune}_medium"
+                    echo "Running" > "$STATUS_DIR/$combo_id"
+                    
+                    # Add small delay to see state changes
+                    sleep 0.5
+                    
+                    exe_name="combo_${opt}_${march}_${mtune}_medium_$$_${RANDOM}"
+                    gcc $flags -Wall -o $exe_name src/optimized_matrix.c -lm 2>/dev/null
+                    
+                    if [ $? -eq 0 ]; then
+                        result=$(./$exe_name medium 2>/dev/null)
+                        gflops=$(echo "$result" | grep "Performance:" | awk '{print $2}')
+                        time=$(echo "$result" | grep "Time:" | awk '{print $2}')
+                        
+                        if [ ! -z "$gflops" ]; then
+                            sort_key=$(printf "%08.2f" $(echo "$gflops * 100" | bc -l) | tr '.' '_')
+                            echo "$sort_key|$gflops|$time|$opt|$march_desc|$mtune_desc|medium" > /tmp/combo_results_$$/${opt}_${march}_${mtune}_medium 2>/dev/null
+                        fi
+                        
+                        rm -f $exe_name 2>/dev/null
+                    fi
+                    
+                    # Add delay before marking complete
+                    sleep 0.5
+                    echo "Complete" > "$STATUS_DIR/$combo_id"
+                ) &
+            done
+        done
+    done
+fi
 
 # Wait for all jobs and monitor to complete
 wait
