@@ -120,6 +120,11 @@ done
         echo "Progress: $complete/$total complete, $running running, $pending pending"
         echo
         
+        # Exit if all tests are complete
+        if [ $complete -eq $total ] && [ $running -eq 0 ] && [ $pending -eq 0 ]; then
+            break
+        fi
+        
         printf "| %-12s | %-12s | %-12s | %-8s | %-10s | %-12s |\n" "Optimization" "-march" "-mtune" "Size" "Status" "Elapsed Time"
         printf "|--------------|--------------|--------------|----------|------------|--------------|\n"
         
@@ -400,6 +405,11 @@ if [[ " ${sizes[@]} " =~ " medium " ]]; then
             
             echo "Progress: $complete/$total complete, $running running, $pending pending"
             echo
+            
+            # Exit if all tests are complete
+            if [ $complete -eq $total ] && [ $running -eq 0 ] && [ $pending -eq 0 ]; then
+                break
+            fi
             
             printf "| %-12s | %-12s | %-12s | %-8s | %-10s | %-12s |\n" "Optimization" "-march" "-mtune" "Size" "Status" "Elapsed Time"
             printf "|--------------|--------------|--------------|----------|------------|--------------|\n"
