@@ -620,10 +620,19 @@ if [[ " ${sizes[@]} " =~ " medium " ]]; then
             done
         done
     done
+else
+    # Medium tests skipped, clear MONITOR_PID
+    MONITOR_PID=""
 fi
 
 # Wait for all jobs and monitor to complete
 wait
+# Kill any remaining monitor process
+if [ ! -z "$MONITOR_PID" ]; then
+    kill $MONITOR_PID 2>/dev/null
+    wait $MONITOR_PID 2>/dev/null
+fi
+sleep 1
 rm -rf "$STATUS_DIR"
 clear
 
