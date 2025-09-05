@@ -19,14 +19,14 @@ else
 fi
 
 # Prompt for additional optimization flags with timeout
-echo -n "Include additional optimization flags (-flto, -fomit-frame-pointer, -funroll-loops, -ffast-math)? [y/N] (3s timeout): "
+echo -n "Include additional optimization flags (-flto, -fomit-frame-pointer, -funroll-loops)? [y/N] (3s timeout): "
 read -t 3 extra_flags_choice
 echo
 
 if [ "$extra_flags_choice" = "y" ] || [ "$extra_flags_choice" = "Y" ]; then
     use_extra_flags=true
-    extra_flags=("flto" "fomit-frame-pointer" "funroll-loops" "ffast-math")
-    echo "Including additional optimization flags (16x more combinations: 2^4 flag combinations)"
+    extra_flags=("flto" "fomit-frame-pointer" "funroll-loops")
+    echo "Including additional optimization flags (8x more combinations: 2^3 flag combinations)"
 else
     use_extra_flags=false
     extra_flags=()
@@ -77,14 +77,12 @@ for opt in "${opt_levels[@]}"; do
     for march in "${march_options[@]}"; do
         for mtune in "${mtune_options[@]}"; do
             if [ "$use_extra_flags" = true ]; then
-                # Generate all combinations of extra flags (2^4 = 16 combinations)
+                # Generate all combinations of extra flags (2^3 = 8 combinations)
                 for flto in 0 1; do
                     for fomit in 0 1; do
                         for funroll in 0 1; do
-                            for ffast in 0 1; do
-                                for size in "${sizes[@]}"; do
-                                    echo "Pending" > "$STATUS_DIR/${opt}_${march}_${mtune}_${flto}${fomit}${funroll}${ffast}_${size}"
-                                done
+                            for size in "${sizes[@]}"; do
+                                echo "Pending" > "$STATUS_DIR/${opt}_${march}_${mtune}_${flto}${fomit}${funroll}_${size}"
                             done
                         done
                     done
@@ -172,9 +170,8 @@ for size in micro small; do
                         for flto in 0 1; do
                             for fomit in 0 1; do
                                 for funroll in 0 1; do
-                                    for ffast in 0 1; do
-                                        # Build flags
-                                        flags="-$opt"
+                                    # Build flags
+                                    flags="-$opt"
                                         
                                         # Add march flag
                                         case $march in
@@ -201,7 +198,6 @@ for size in micro small; do
                                         [ $flto -eq 1 ] && flags="$flags -flto" && extra_desc="${extra_desc}flto,"
                                         [ $fomit -eq 1 ] && flags="$flags -fomit-frame-pointer" && extra_desc="${extra_desc}fomit-frame-pointer,"
                                         [ $funroll -eq 1 ] && flags="$flags -funroll-loops" && extra_desc="${extra_desc}funroll-loops,"
-                                        [ $ffast -eq 1 ] && flags="$flags -ffast-math" && extra_desc="${extra_desc}ffast-math,"
                                         extra_desc=${extra_desc%,}  # Remove trailing comma
                                         
                                         march_desc="$march"
@@ -212,13 +208,13 @@ for size in micro small; do
                                         
                                         # Run test in background
                                         (
-                                            combo_id="${opt}_${march}_${mtune}_${flto}${fomit}${funroll}${ffast}_${size}"
+                                            combo_id="${opt}_${march}_${mtune}_${flto}${fomit}${funroll}_${size}"
                                             echo "Running" > "$STATUS_DIR/$combo_id"
                                             
                                             # Add small delay to see state changes
                                             sleep 0.5
                                             
-                                            exe_name="combo_${opt}_${march}_${mtune}_${flto}${fomit}${funroll}${ffast}_${size}_$$_${RANDOM}"
+                                            exe_name="combo_${opt}_${march}_${mtune}_${flto}${fomit}${funroll}_${size}_$$_${RANDOM}"
                                             
                                             # Time the compilation
                                             compile_start=$(date +%s.%N)
@@ -243,7 +239,6 @@ for size in micro small; do
                                             sleep 0.5
                                             echo "Complete" > "$STATUS_DIR/$combo_id"
                                         ) &
-                                    done
                                 done
                             done
                         done
@@ -375,9 +370,8 @@ if [[ " ${sizes[@]} " =~ " medium " ]]; then
                     for flto in 0 1; do
                         for fomit in 0 1; do
                             for funroll in 0 1; do
-                                for ffast in 0 1; do
-                                    # Build flags
-                                    flags="-$opt"
+                                # Build flags
+                                flags="-$opt"
                                     
                                     # Add march flag
                                     case $march in
@@ -404,7 +398,6 @@ if [[ " ${sizes[@]} " =~ " medium " ]]; then
                                     [ $flto -eq 1 ] && flags="$flags -flto" && extra_desc="${extra_desc}flto,"
                                     [ $fomit -eq 1 ] && flags="$flags -fomit-frame-pointer" && extra_desc="${extra_desc}fomit-frame-pointer,"
                                     [ $funroll -eq 1 ] && flags="$flags -funroll-loops" && extra_desc="${extra_desc}funroll-loops,"
-                                    [ $ffast -eq 1 ] && flags="$flags -ffast-math" && extra_desc="${extra_desc}ffast-math,"
                                     extra_desc=${extra_desc%,}  # Remove trailing comma
                                     
                                     march_desc="$march"
@@ -415,13 +408,13 @@ if [[ " ${sizes[@]} " =~ " medium " ]]; then
                                     
                                     # Run test in background
                                     (
-                                        combo_id="${opt}_${march}_${mtune}_${flto}${fomit}${funroll}${ffast}_medium"
+                                        combo_id="${opt}_${march}_${mtune}_${flto}${fomit}${funroll}_medium"
                                         echo "Running" > "$STATUS_DIR/$combo_id"
                                         
                                         # Add small delay to see state changes
                                         sleep 0.5
                                         
-                                        exe_name="combo_${opt}_${march}_${mtune}_${flto}${fomit}${funroll}${ffast}_medium_$$_${RANDOM}"
+                                        exe_name="combo_${opt}_${march}_${mtune}_${flto}${fomit}${funroll}_medium_$$_${RANDOM}"
                                         
                                         # Time the compilation
                                         compile_start=$(date +%s.%N)
@@ -446,7 +439,6 @@ if [[ " ${sizes[@]} " =~ " medium " ]]; then
                                         sleep 0.5
                                         echo "Complete" > "$STATUS_DIR/$combo_id"
                                     ) &
-                                done
                             done
                         done
                     done
@@ -635,7 +627,6 @@ for target_size in "${sizes[@]}"; do
                 if [[ "$extra_flags" == *"flto"* ]]; then extra_display="${extra_display}lto,"; fi
                 if [[ "$extra_flags" == *"fomit-frame-pointer"* ]]; then extra_display="${extra_display}omit-fp,"; fi
                 if [[ "$extra_flags" == *"funroll-loops"* ]]; then extra_display="${extra_display}unroll,"; fi
-                if [[ "$extra_flags" == *"ffast-math"* ]]; then extra_display="${extra_display}fast-math,"; fi
                 extra_display=${extra_display%,}  # Remove trailing comma
                 [ -z "$extra_display" ] && extra_display="None"
                 
