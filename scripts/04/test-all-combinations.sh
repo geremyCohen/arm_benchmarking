@@ -17,6 +17,21 @@ else
     sizes=("micro" "small")
     echo "Testing default sizes: micro, small (medium skipped for speed)"
 fi
+
+# Prompt for additional optimization flags with timeout
+echo -n "Include additional optimization flags (-flto, -fomit-frame-pointer, -funroll-loops, -ffast-math)? [y/N] (3s timeout): "
+read -t 3 extra_flags_choice
+echo
+
+if [ "$extra_flags_choice" = "y" ] || [ "$extra_flags_choice" = "Y" ]; then
+    use_extra_flags=true
+    extra_flags=("flto" "fomit-frame-pointer" "funroll-loops" "ffast-math")
+    echo "Including additional optimization flags (16x more combinations: 2^4 flag combinations)"
+else
+    use_extra_flags=false
+    extra_flags=()
+    echo "Using standard optimization flags only"
+fi
 echo
 
 # Detect Neoverse processor type
@@ -61,9 +76,24 @@ mtune_options=("none" "native" "neoverse")
 for opt in "${opt_levels[@]}"; do
     for march in "${march_options[@]}"; do
         for mtune in "${mtune_options[@]}"; do
-            for size in "${sizes[@]}"; do
-                echo "Pending" > "$STATUS_DIR/${opt}_${march}_${mtune}_${size}"
-            done
+            if [ "$use_extra_flags" = true ]; then
+                # Generate all combinations of extra flags (2^4 = 16 combinations)
+                for flto in 0 1; do
+                    for fomit in 0 1; do
+                        for funroll in 0 1; do
+                            for ffast in 0 1; do
+                                for size in "${sizes[@]}"; do
+                                    echo "Pending" > "$STATUS_DIR/${opt}_${march}_${mtune}_${flto}${fomit}${funroll}${ffast}_${size}"
+                                done
+                            done
+                        done
+                    done
+                done
+            else
+                for size in "${sizes[@]}"; do
+                    echo "Pending" > "$STATUS_DIR/${opt}_${march}_${mtune}_${size}"
+                done
+            fi
         done
     done
 done
@@ -199,65 +229,143 @@ for size in micro small; do
         for opt in "${opt_levels[@]}"; do
             for march in "${march_options[@]}"; do
                 for mtune in "${mtune_options[@]}"; do
-                # Build flags
-                flags="-$opt"
-                
-                # Add march flag
-                case $march in
-                    "native")
-                        flags="$flags -march=native"
-                        ;;
-                    "neoverse")
-                        flags="$flags -march=$MARCH_SPECIFIC"
-                        ;;
-                esac
-                
-                # Add mtune flag
-                case $mtune in
-                    "native")
-                        flags="$flags -mtune=native"
-                        ;;
-                    "neoverse")
-                        flags="$flags -mtune=$MTUNE_SPECIFIC"
-                        ;;
-                esac
-                
-                march_desc="$march"
-                mtune_desc="$mtune"
-                
-                # Wait for available job slot
-                wait_for_slot
-                
-                # Run test in background
-                (
-                    combo_id="${opt}_${march}_${mtune}_${size}"
-                    echo "Running" > "$STATUS_DIR/$combo_id"
-                    
-                    # Add small delay to see state changes
-                    sleep 0.5
-                    
-                    exe_name="combo_${opt}_${march}_${mtune}_${size}_$$_${RANDOM}"
-                    gcc $flags -Wall -o $exe_name src/optimized_matrix.c -lm 2>/dev/null
-                    
-                    if [ $? -eq 0 ]; then
-                        result=$(./$exe_name $size 2>/dev/null)
-                        gflops=$(echo "$result" | grep "Performance:" | awk '{print $2}')
-                        time=$(echo "$result" | grep "Time:" | awk '{print $2}')
+                    if [ "$use_extra_flags" = true ]; then
+                        # Test all 16 combinations of extra flags (2^4)
+                        for flto in 0 1; do
+                            for fomit in 0 1; do
+                                for funroll in 0 1; do
+                                    for ffast in 0 1; do
+                                        # Build flags
+                                        flags="-$opt"
+                                        
+                                        # Add march flag
+                                        case $march in
+                                            "native")
+                                                flags="$flags -march=native"
+                                                ;;
+                                            "neoverse")
+                                                flags="$flags -march=$MARCH_SPECIFIC"
+                                                ;;
+                                        esac
+                                        
+                                        # Add mtune flag
+                                        case $mtune in
+                                            "native")
+                                                flags="$flags -mtune=native"
+                                                ;;
+                                            "neoverse")
+                                                flags="$flags -mtune=$MTUNE_SPECIFIC"
+                                                ;;
+                                        esac
+                                        
+                                        # Add extra flags
+                                        extra_desc=""
+                                        [ $flto -eq 1 ] && flags="$flags -flto" && extra_desc="${extra_desc}flto,"
+                                        [ $fomit -eq 1 ] && flags="$flags -fomit-frame-pointer" && extra_desc="${extra_desc}fomit-frame-pointer,"
+                                        [ $funroll -eq 1 ] && flags="$flags -funroll-loops" && extra_desc="${extra_desc}funroll-loops,"
+                                        [ $ffast -eq 1 ] && flags="$flags -ffast-math" && extra_desc="${extra_desc}ffast-math,"
+                                        extra_desc=${extra_desc%,}  # Remove trailing comma
+                                        
+                                        march_desc="$march"
+                                        mtune_desc="$mtune"
+                                        
+                                        # Wait for available job slot
+                                        wait_for_slot
+                                        
+                                        # Run test in background
+                                        (
+                                            combo_id="${opt}_${march}_${mtune}_${flto}${fomit}${funroll}${ffast}_${size}"
+                                            echo "Running" > "$STATUS_DIR/$combo_id"
+                                            
+                                            # Add small delay to see state changes
+                                            sleep 0.5
+                                            
+                                            exe_name="combo_${opt}_${march}_${mtune}_${flto}${fomit}${funroll}${ffast}_${size}_$$_${RANDOM}"
+                                            gcc $flags -Wall -o $exe_name src/optimized_matrix.c -lm 2>/dev/null
+                                            
+                                            if [ $? -eq 0 ]; then
+                                                result=$(./$exe_name $size 2>/dev/null)
+                                                gflops=$(echo "$result" | grep "Performance:" | awk '{print $2}')
+                                                time=$(echo "$result" | grep "Time:" | awk '{print $2}')
+                                                
+                                                if [ ! -z "$gflops" ]; then
+                                                    sort_key=$(printf "%08.2f" $(echo "$gflops * 100" | bc -l) | tr '.' '_')
+                                                    echo "$sort_key|$gflops|$time|$opt|$march_desc|$mtune_desc|$extra_desc|$size" > /tmp/combo_results_$$/${combo_id} 2>/dev/null
+                                                fi
+                                                
+                                                rm -f $exe_name 2>/dev/null
+                                            fi
+                                            
+                                            # Add delay before marking complete
+                                            sleep 0.5
+                                            echo "Complete" > "$STATUS_DIR/$combo_id"
+                                        ) &
+                                    done
+                                done
+                            done
+                        done
+                    else
+                        # Original logic without extra flags
+                        # Build flags
+                        flags="-$opt"
                         
-                        if [ ! -z "$gflops" ]; then
-                            sort_key=$(printf "%08.2f" $(echo "$gflops * 100" | bc -l) | tr '.' '_')
-                            echo "$sort_key|$gflops|$time|$opt|$march_desc|$mtune_desc|$size" > /tmp/combo_results_$$/${opt}_${march}_${mtune}_${size} 2>/dev/null
-                        fi
+                        # Add march flag
+                        case $march in
+                            "native")
+                                flags="$flags -march=native"
+                                ;;
+                            "neoverse")
+                                flags="$flags -march=$MARCH_SPECIFIC"
+                                ;;
+                        esac
                         
-                        rm -f $exe_name 2>/dev/null
+                        # Add mtune flag
+                        case $mtune in
+                            "native")
+                                flags="$flags -mtune=native"
+                                ;;
+                            "neoverse")
+                                flags="$flags -mtune=$MTUNE_SPECIFIC"
+                                ;;
+                        esac
+                        
+                        march_desc="$march"
+                        mtune_desc="$mtune"
+                        
+                        # Wait for available job slot
+                        wait_for_slot
+                        
+                        # Run test in background
+                        (
+                            combo_id="${opt}_${march}_${mtune}_${size}"
+                            echo "Running" > "$STATUS_DIR/$combo_id"
+                            
+                            # Add small delay to see state changes
+                            sleep 0.5
+                            
+                            exe_name="combo_${opt}_${march}_${mtune}_${size}_$$_${RANDOM}"
+                            gcc $flags -Wall -o $exe_name src/optimized_matrix.c -lm 2>/dev/null
+                            
+                            if [ $? -eq 0 ]; then
+                                result=$(./$exe_name $size 2>/dev/null)
+                                gflops=$(echo "$result" | grep "Performance:" | awk '{print $2}')
+                                time=$(echo "$result" | grep "Time:" | awk '{print $2}')
+                                
+                                if [ ! -z "$gflops" ]; then
+                                    sort_key=$(printf "%08.2f" $(echo "$gflops * 100" | bc -l) | tr '.' '_')
+                                    echo "$sort_key|$gflops|$time|$opt|$march_desc|$mtune_desc|$size" > /tmp/combo_results_$$/${opt}_${march}_${mtune}_${size} 2>/dev/null
+                                fi
+                                
+                                rm -f $exe_name 2>/dev/null
+                            fi
+                            
+                            # Add delay before marking complete
+                            sleep 0.5
+                            echo "Complete" > "$STATUS_DIR/$combo_id"
+                        ) &
                     fi
-                    
-                    # Add delay before marking complete
-                    sleep 0.5
-                    echo "Complete" > "$STATUS_DIR/$combo_id"
-                ) &
+                done
             done
-        done
     done
 fi
 done
@@ -374,62 +482,141 @@ if [[ " ${sizes[@]} " =~ " medium " ]]; then
     for opt in "${opt_levels[@]}"; do
         for march in "${march_options[@]}"; do
             for mtune in "${mtune_options[@]}"; do
-                # Build flags
-                flags="-$opt"
-                
-                # Add march flag
-                case $march in
-                    "native")
-                        flags="$flags -march=native"
-                        ;;
-                    "neoverse")
-                        flags="$flags -march=$MARCH_SPECIFIC"
-                        ;;
-                esac
-                
-                # Add mtune flag
-                case $mtune in
-                    "native")
-                        flags="$flags -mtune=native"
-                        ;;
-                    "neoverse")
-                        flags="$flags -mtune=$MTUNE_SPECIFIC"
-                        ;;
-                esac
-                
-                march_desc="$march"
-                mtune_desc="$mtune"
-                
-                # Wait for available job slot
-                wait_for_slot
-                
-                # Run test in background
-                (
-                    combo_id="${opt}_${march}_${mtune}_medium"
-                    echo "Running" > "$STATUS_DIR/$combo_id"
+                if [ "$use_extra_flags" = true ]; then
+                    # Test all 16 combinations of extra flags (2^4)
+                    for flto in 0 1; do
+                        for fomit in 0 1; do
+                            for funroll in 0 1; do
+                                for ffast in 0 1; do
+                                    # Build flags
+                                    flags="-$opt"
+                                    
+                                    # Add march flag
+                                    case $march in
+                                        "native")
+                                            flags="$flags -march=native"
+                                            ;;
+                                        "neoverse")
+                                            flags="$flags -march=$MARCH_SPECIFIC"
+                                            ;;
+                                    esac
+                                    
+                                    # Add mtune flag
+                                    case $mtune in
+                                        "native")
+                                            flags="$flags -mtune=native"
+                                            ;;
+                                        "neoverse")
+                                            flags="$flags -mtune=$MTUNE_SPECIFIC"
+                                            ;;
+                                    esac
+                                    
+                                    # Add extra flags
+                                    extra_desc=""
+                                    [ $flto -eq 1 ] && flags="$flags -flto" && extra_desc="${extra_desc}flto,"
+                                    [ $fomit -eq 1 ] && flags="$flags -fomit-frame-pointer" && extra_desc="${extra_desc}fomit-frame-pointer,"
+                                    [ $funroll -eq 1 ] && flags="$flags -funroll-loops" && extra_desc="${extra_desc}funroll-loops,"
+                                    [ $ffast -eq 1 ] && flags="$flags -ffast-math" && extra_desc="${extra_desc}ffast-math,"
+                                    extra_desc=${extra_desc%,}  # Remove trailing comma
+                                    
+                                    march_desc="$march"
+                                    mtune_desc="$mtune"
+                                    
+                                    # Wait for available job slot
+                                    wait_for_slot
+                                    
+                                    # Run test in background
+                                    (
+                                        combo_id="${opt}_${march}_${mtune}_${flto}${fomit}${funroll}${ffast}_medium"
+                                        echo "Running" > "$STATUS_DIR/$combo_id"
+                                        
+                                        # Add small delay to see state changes
+                                        sleep 0.5
+                                        
+                                        exe_name="combo_${opt}_${march}_${mtune}_${flto}${fomit}${funroll}${ffast}_medium_$$_${RANDOM}"
+                                        gcc $flags -Wall -o $exe_name src/optimized_matrix.c -lm 2>/dev/null
+                                        
+                                        if [ $? -eq 0 ]; then
+                                            result=$(./$exe_name medium 2>/dev/null)
+                                            gflops=$(echo "$result" | grep "Performance:" | awk '{print $2}')
+                                            time=$(echo "$result" | grep "Time:" | awk '{print $2}')
+                                            
+                                            if [ ! -z "$gflops" ]; then
+                                                sort_key=$(printf "%08.2f" $(echo "$gflops * 100" | bc -l) | tr '.' '_')
+                                                echo "$sort_key|$gflops|$time|$opt|$march_desc|$mtune_desc|$extra_desc|medium" > /tmp/combo_results_$$/${combo_id} 2>/dev/null
+                                            fi
+                                            
+                                            rm -f $exe_name 2>/dev/null
+                                        fi
+                                        
+                                        # Add delay before marking complete
+                                        sleep 0.5
+                                        echo "Complete" > "$STATUS_DIR/$combo_id"
+                                    ) &
+                                done
+                            done
+                        done
+                    done
+                else
+                    # Original logic without extra flags
+                    # Build flags
+                    flags="-$opt"
                     
-                    # Add small delay to see state changes
-                    sleep 0.5
+                    # Add march flag
+                    case $march in
+                        "native")
+                            flags="$flags -march=native"
+                            ;;
+                        "neoverse")
+                            flags="$flags -march=$MARCH_SPECIFIC"
+                            ;;
+                    esac
                     
-                    exe_name="combo_${opt}_${march}_${mtune}_medium_$$_${RANDOM}"
-                    gcc $flags -Wall -o $exe_name src/optimized_matrix.c -lm 2>/dev/null
+                    # Add mtune flag
+                    case $mtune in
+                        "native")
+                            flags="$flags -mtune=native"
+                            ;;
+                        "neoverse")
+                            flags="$flags -mtune=$MTUNE_SPECIFIC"
+                            ;;
+                    esac
                     
-                    if [ $? -eq 0 ]; then
-                        result=$(./$exe_name medium 2>/dev/null)
-                        gflops=$(echo "$result" | grep "Performance:" | awk '{print $2}')
-                        time=$(echo "$result" | grep "Time:" | awk '{print $2}')
+                    march_desc="$march"
+                    mtune_desc="$mtune"
+                    
+                    # Wait for available job slot
+                    wait_for_slot
+                    
+                    # Run test in background
+                    (
+                        combo_id="${opt}_${march}_${mtune}_medium"
+                        echo "Running" > "$STATUS_DIR/$combo_id"
                         
-                        if [ ! -z "$gflops" ]; then
-                            sort_key=$(printf "%08.2f" $(echo "$gflops * 100" | bc -l) | tr '.' '_')
-                            echo "$sort_key|$gflops|$time|$opt|$march_desc|$mtune_desc|medium" > /tmp/combo_results_$$/${opt}_${march}_${mtune}_medium 2>/dev/null
+                        # Add small delay to see state changes
+                        sleep 0.5
+                        
+                        exe_name="combo_${opt}_${march}_${mtune}_medium_$$_${RANDOM}"
+                        gcc $flags -Wall -o $exe_name src/optimized_matrix.c -lm 2>/dev/null
+                        
+                        if [ $? -eq 0 ]; then
+                            result=$(./$exe_name medium 2>/dev/null)
+                            gflops=$(echo "$result" | grep "Performance:" | awk '{print $2}')
+                            time=$(echo "$result" | grep "Time:" | awk '{print $2}')
+                            
+                            if [ ! -z "$gflops" ]; then
+                                sort_key=$(printf "%08.2f" $(echo "$gflops * 100" | bc -l) | tr '.' '_')
+                                echo "$sort_key|$gflops|$time|$opt|$march_desc|$mtune_desc|medium" > /tmp/combo_results_$$/${opt}_${march}_${mtune}_medium 2>/dev/null
+                            fi
+                            
+                            rm -f $exe_name 2>/dev/null
                         fi
                         
-                        rm -f $exe_name 2>/dev/null
-                    fi
-                    
-                    # Add delay before marking complete
-                    sleep 0.5
-                    echo "Complete" > "$STATUS_DIR/$combo_id"
+                        # Add delay before marking complete
+                        sleep 0.5
+                        echo "Complete" > "$STATUS_DIR/$combo_id"
+                    ) &
+                fi
                 ) &
             done
         done
@@ -462,8 +649,13 @@ IFS=$'\n' sorted=($(printf '%s\n' "${all_results[@]}" | sort -t'|' -k1,1nr))
 for target_size in "${sizes[@]}"; do
     echo "### ${target_size^} Matrix ($(case $target_size in micro) echo "64x64";; small) echo "512x512";; medium) echo "2048x2048";; esac))"
     echo
-    printf "| %-5s | %-8s | %-6s | %-8s | %-4s | %-15s | %-15s |\n" "Rank" "GFLOPS" "Time(s)" "GFLOP/s" "Opt" "-march" "-mtune"
-    printf "|-------|----------|--------|----------|------|-----------------|------------------|\n"
+    if [ "$use_extra_flags" = true ]; then
+        printf "| %-5s | %-8s | %-6s | %-8s | %-4s | %-15s | %-15s | %-20s |\n" "Rank" "GFLOPS" "Time(s)" "GFLOP/s" "Opt" "-march" "-mtune" "Extra Flags"
+        printf "|-------|----------|--------|----------|------|-----------------|------------------|----------------------|\n"
+    else
+        printf "| %-5s | %-8s | %-6s | %-8s | %-4s | %-15s | %-15s |\n" "Rank" "GFLOPS" "Time(s)" "GFLOP/s" "Opt" "-march" "-mtune"
+        printf "|-------|----------|--------|----------|------|-----------------|------------------|\n"
+    fi
     
     rank=1
     best_gflops_for_size=""
@@ -477,7 +669,12 @@ for target_size in "${sizes[@]}"; do
     autodetect_gflops_for_size=""
     
     for result in "${sorted[@]}"; do
-        IFS='|' read -r sort_key gflops time opt march mtune size <<< "$result"
+        if [ "$use_extra_flags" = true ]; then
+            IFS='|' read -r sort_key gflops time opt march mtune extra_flags size <<< "$result"
+        else
+            IFS='|' read -r sort_key gflops time opt march mtune size <<< "$result"
+            extra_flags=""
+        fi
         if [ "$size" = "$target_size" ]; then
             # Track best performance for this size
             if [ -z "$best_gflops_for_size" ]; then
@@ -522,7 +719,20 @@ for target_size in "${sizes[@]}"; do
                 "neoverse") mtune_flag="V2" ;;
             esac
             
-            printf "| %-5d | %-8s | %-6s | %-8s | %-4s | %-15s | %-15s |\n" "$rank" "$gflops" "$time" "$gflop_per_s" "-$opt" "$march_flag" "$mtune_flag"
+            # Format extra flags for display
+            if [ "$use_extra_flags" = true ]; then
+                extra_display=""
+                if [[ "$extra_flags" == *"flto"* ]]; then extra_display="${extra_display}lto,"; fi
+                if [[ "$extra_flags" == *"fomit-frame-pointer"* ]]; then extra_display="${extra_display}omit-fp,"; fi
+                if [[ "$extra_flags" == *"funroll-loops"* ]]; then extra_display="${extra_display}unroll,"; fi
+                if [[ "$extra_flags" == *"ffast-math"* ]]; then extra_display="${extra_display}fast-math,"; fi
+                extra_display=${extra_display%,}  # Remove trailing comma
+                [ -z "$extra_display" ] && extra_display="None"
+                
+                printf "| %-5d | %-8s | %-6s | %-8s | %-4s | %-15s | %-15s | %-20s |\n" "$rank" "$gflops" "$time" "$gflop_per_s" "-$opt" "$march_flag" "$mtune_flag" "$extra_display"
+            else
+                printf "| %-5d | %-8s | %-6s | %-8s | %-4s | %-15s | %-15s |\n" "$rank" "$gflops" "$time" "$gflop_per_s" "-$opt" "$march_flag" "$mtune_flag"
+            fi
             ((rank++))
         fi
     done
@@ -544,9 +754,15 @@ done
 echo "=== Key Insights ==="
 
 # Get baseline performance from O0/None/None results in our test data
-baseline_micro=$(printf '%s\n' "${sorted[@]}" | grep "|O0|none|none|micro$" | head -1 | cut -d'|' -f2)
-baseline_small=$(printf '%s\n' "${sorted[@]}" | grep "|O0|none|none|small$" | head -1 | cut -d'|' -f2)
-baseline_medium=$(printf '%s\n' "${sorted[@]}" | grep "|O0|none|none|medium$" | head -1 | cut -d'|' -f2)
+if [ "$use_extra_flags" = true ]; then
+    baseline_micro=$(printf '%s\n' "${sorted[@]}" | grep "|O0|none|none||micro$" | head -1 | cut -d'|' -f2)
+    baseline_small=$(printf '%s\n' "${sorted[@]}" | grep "|O0|none|none||small$" | head -1 | cut -d'|' -f2)
+    baseline_medium=$(printf '%s\n' "${sorted[@]}" | grep "|O0|none|none||medium$" | head -1 | cut -d'|' -f2)
+else
+    baseline_micro=$(printf '%s\n' "${sorted[@]}" | grep "|O0|none|none|micro$" | head -1 | cut -d'|' -f2)
+    baseline_small=$(printf '%s\n' "${sorted[@]}" | grep "|O0|none|none|small$" | head -1 | cut -d'|' -f2)
+    baseline_medium=$(printf '%s\n' "${sorted[@]}" | grep "|O0|none|none|medium$" | head -1 | cut -d'|' -f2)
+fi
 
 # Function to convert arch names to readable format
 get_arch_name() {
