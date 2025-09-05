@@ -446,14 +446,15 @@ if [[ " ${sizes[@]} " =~ " medium " ]]; then
             echo "Updated: $(date '+%H:%M:%S')"
             echo
             
-            # Count status by matrix size
-            for size in "${sizes[@]}"; do
-                size_pending=$(grep -l "Pending" "$STATUS_DIR"/*_${size} 2>/dev/null | wc -l)
-                size_running=$(grep -l "Running" "$STATUS_DIR"/*_${size} 2>/dev/null | wc -l)
-                size_complete=$(grep -l "Complete" "$STATUS_DIR"/*_${size} 2>/dev/null | wc -l)
-                
-                echo "${size} matrix compile runs pending/running/complete ${size_pending}/${size_running}/${size_complete}"
-            done
+            # Count status by matrix size (only for medium tests)
+            size_pending=$(grep -l "Pending" "$STATUS_DIR"/*_medium 2>/dev/null | wc -l)
+            size_running=$(grep -l "Running" "$STATUS_DIR"/*_medium 2>/dev/null | wc -l)
+            size_complete=$(grep -l "Complete" "$STATUS_DIR"/*_medium 2>/dev/null | wc -l)
+            
+            # Only show if there are any medium status files
+            if [ $((size_pending + size_running + size_complete)) -gt 0 ]; then
+                echo "medium matrix compile runs pending/running/complete ${size_pending}/${size_running}/${size_complete}"
+            fi
             echo
             
             # Exit if all tests are complete
@@ -659,11 +660,11 @@ for target_size in "${sizes[@]}"; do
     echo "### ${target_size^} Matrix ($(case $target_size in micro) echo "64x64";; small) echo "512x512";; medium) echo "2048x2048";; esac))"
     echo
     if [ "$use_extra_flags" = true ]; then
-        printf "| %-5s | %-8s | %-6s | %-8s | %-8s | %-4s | %-15s | %-15s | %-20s |\n" "Rank" "GFLOPS" "Time(s)" "Compile(s)" "GFLOP/s" "Opt" "-march" "-mtune" "Extra Flags"
-        printf "|-------|----------|--------|----------|----------|------|-----------------|------------------|----------------------|\n"
+        printf "| %-5s | %-8s | %-6s | %-8s | %-8s | %-4s | %-15s | %-15s | %-20s | %-3s |\n" "Rank" "GFLOPS" "Time(s)" "Compile(s)" "GFLOP/s" "Opt" "-march" "-mtune" "Extra Flags" "PGO"
+        printf "|-------|----------|--------|----------|----------|------|-----------------|------------------|----------------------|-----|\n"
     else
-        printf "| %-5s | %-8s | %-6s | %-8s | %-8s | %-4s | %-15s | %-15s |\n" "Rank" "GFLOPS" "Time(s)" "Compile(s)" "GFLOP/s" "Opt" "-march" "-mtune"
-        printf "|-------|----------|--------|----------|----------|------|-----------------|------------------|\n"
+        printf "| %-5s | %-8s | %-6s | %-8s | %-8s | %-4s | %-15s | %-15s | %-3s |\n" "Rank" "GFLOPS" "Time(s)" "Compile(s)" "GFLOP/s" "Opt" "-march" "-mtune" "PGO"
+        printf "|-------|----------|--------|----------|----------|------|-----------------|------------------|-----|\n"
     fi
     
     rank=1
@@ -728,6 +729,12 @@ for target_size in "${sizes[@]}"; do
                 "neoverse") mtune_flag="V2" ;;
             esac
             
+            # Detect PGO usage
+            pgo_display="F"
+            if [[ "$extra_flags" == *"PGO"* ]]; then
+                pgo_display="T"
+            fi
+            
             # Format extra flags for display
             if [ "$use_extra_flags" = true ]; then
                 extra_display=""
@@ -737,9 +744,9 @@ for target_size in "${sizes[@]}"; do
                 extra_display=${extra_display%,}  # Remove trailing comma
                 [ -z "$extra_display" ] && extra_display="None"
                 
-                printf "| %-5d | %-8s | %-6s | %-8s | %-8s | %-4s | %-15s | %-15s | %-20s |\n" "$rank" "$gflops" "$time" "$compile_time" "$gflop_per_s" "-$opt" "$march_flag" "$mtune_flag" "$extra_display"
+                printf "| %-5d | %-8s | %-6s | %-8s | %-8s | %-4s | %-15s | %-15s | %-20s | %-3s |\n" "$rank" "$gflops" "$time" "$compile_time" "$gflop_per_s" "-$opt" "$march_flag" "$mtune_flag" "$extra_display" "$pgo_display"
             else
-                printf "| %-5d | %-8s | %-6s | %-8s | %-8s | %-4s | %-15s | %-15s |\n" "$rank" "$gflops" "$time" "$compile_time" "$gflop_per_s" "-$opt" "$march_flag" "$mtune_flag"
+                printf "| %-5d | %-8s | %-6s | %-8s | %-8s | %-4s | %-15s | %-15s | %-3s |\n" "$rank" "$gflops" "$time" "$compile_time" "$gflop_per_s" "-$opt" "$march_flag" "$mtune_flag" "$pgo_display"
             fi
             ((rank++))
         fi
@@ -763,15 +770,15 @@ done
 
 echo "=== Key Insights ==="
 
-# Get baseline performance from O0/None/None results in our test data
+# Get baseline performance from O0/native/native results in our test data
 if [ "$use_extra_flags" = true ]; then
-    baseline_micro=$(printf '%s\n' "${sorted[@]}" | grep "|O0|none|none||micro$" | head -1 | cut -d'|' -f2)
-    baseline_small=$(printf '%s\n' "${sorted[@]}" | grep "|O0|none|none||small$" | head -1 | cut -d'|' -f2)
-    baseline_medium=$(printf '%s\n' "${sorted[@]}" | grep "|O0|none|none||medium$" | head -1 | cut -d'|' -f2)
+    baseline_micro=$(printf '%s\n' "${sorted[@]}" | grep "|O0|native|native||micro$" | head -1 | cut -d'|' -f2)
+    baseline_small=$(printf '%s\n' "${sorted[@]}" | grep "|O0|native|native||small$" | head -1 | cut -d'|' -f2)
+    baseline_medium=$(printf '%s\n' "${sorted[@]}" | grep "|O0|native|native||medium$" | head -1 | cut -d'|' -f2)
 else
-    baseline_micro=$(printf '%s\n' "${sorted[@]}" | grep "|O0|none|none|micro$" | head -1 | cut -d'|' -f2)
-    baseline_small=$(printf '%s\n' "${sorted[@]}" | grep "|O0|none|none|small$" | head -1 | cut -d'|' -f2)
-    baseline_medium=$(printf '%s\n' "${sorted[@]}" | grep "|O0|none|none|medium$" | head -1 | cut -d'|' -f2)
+    baseline_micro=$(printf '%s\n' "${sorted[@]}" | grep "|O0|native|native||micro$" | head -1 | cut -d'|' -f2)
+    baseline_small=$(printf '%s\n' "${sorted[@]}" | grep "|O0|native|native||small$" | head -1 | cut -d'|' -f2)
+    baseline_medium=$(printf '%s\n' "${sorted[@]}" | grep "|O0|native|native||medium$" | head -1 | cut -d'|' -f2)
 fi
 
 # Function to convert arch names to readable format
