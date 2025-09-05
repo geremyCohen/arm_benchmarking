@@ -5,9 +5,9 @@
 echo "=== Comprehensive Compiler Optimization Analysis ==="
 echo
 
-# Prompt for matrix sizes with timeout
-echo -n "Test sizes: micro+small (default) or all including medium? [micro+small/all] (3s timeout): "
-read -t 3 size_choice
+# Prompt for matrix sizes
+echo -n "Test sizes: micro+small (default) or all including medium? [micro+small/all]: "
+read size_choice
 echo
 
 if [[ "$size_choice" == "all" ]]; then
@@ -18,9 +18,9 @@ else
     echo "Testing default sizes: micro, small (medium skipped for speed)"
 fi
 
-# Prompt for additional optimization flags with timeout
-echo -n "Include additional optimization flags (-flto, -fomit-frame-pointer, -funroll-loops)? [y/N] (3s timeout): "
-read -t 3 extra_flags_choice
+# Prompt for additional optimization flags
+echo -n "Include additional optimization flags (-flto, -fomit-frame-pointer, -funroll-loops)? [y/N]: "
+read extra_flags_choice
 echo
 
 if [ "$extra_flags_choice" = "y" ] || [ "$extra_flags_choice" = "Y" ]; then
@@ -33,9 +33,9 @@ else
     echo "Using standard optimization flags only"
 fi
 
-# Prompt for profile-guided optimization with timeout
-echo -n "Use -fprofile-generate and -fprofile-use? [y/N] (3s timeout): "
-read -t 3 pgo_choice
+# Prompt for profile-guided optimization
+echo -n "Use -fprofile-generate and -fprofile-use? [y/N]: "
+read pgo_choice
 echo
 
 if [ "$pgo_choice" = "y" ] || [ "$pgo_choice" = "Y" ]; then
