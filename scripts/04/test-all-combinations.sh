@@ -660,11 +660,11 @@ for target_size in "${sizes[@]}"; do
     echo "### ${target_size^} Matrix ($(case $target_size in micro) echo "64x64";; small) echo "512x512";; medium) echo "2048x2048";; esac))"
     echo
     if [ "$use_extra_flags" = true ]; then
-        printf "| %-5s | %-8s | %-8s | %-15s | %-4s | %-15s | %-15s | %-20s | %-3s |\n" "Rank" "GFLOPS" "GFLOP/s" "Time (s)" "Opt" "-march" "-mtune" "Extra Flags" "PGO"
+        printf "| %-5s | %-8s | %-8s | %-15s | %-4s | %-15s | %-15s | %-20s | %-3s |\n" "Rank" "GFLOPS" "GFLOP/s" "Time (seconds)" "Opt" "-march" "-mtune" "Extra Flags" "PGO"
         printf "|       |          |          | %-6s | %-7s |      |                 |                  |                      |     |\n" "Run" "Compile"
         printf "|-------|----------|----------|--------|---------|------|-----------------|------------------|----------------------|-----|\n"
     else
-        printf "| %-5s | %-8s | %-8s | %-15s | %-4s | %-15s | %-15s | %-3s |\n" "Rank" "GFLOPS" "GFLOP/s" "Time (s)" "Opt" "-march" "-mtune" "PGO"
+        printf "| %-5s | %-8s | %-8s | %-15s | %-4s | %-15s | %-15s | %-3s |\n" "Rank" "GFLOPS" "GFLOP/s" "Time (seconds)" "Opt" "-march" "-mtune" "PGO"
         printf "|       |          |          | %-6s | %-7s |      |                 |                  |     |\n" "Run" "Compile"
         printf "|-------|----------|----------|--------|---------|------|-----------------|------------------|-----|\n"
     fi
