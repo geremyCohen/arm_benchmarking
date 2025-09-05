@@ -660,13 +660,13 @@ for target_size in "${sizes[@]}"; do
     echo "### ${target_size^} Matrix ($(case $target_size in micro) echo "64x64";; small) echo "512x512";; medium) echo "2048x2048";; esac))"
     echo
     if [ "$use_extra_flags" = true ]; then
-        printf "| %-5s | %-8s | %-15s | %-8s | %-4s | %-15s | %-15s | %-20s | %-3s |\n" "Rank" "GFLOPS" "Time (s)" "GFLOP/s" "Opt" "-march" "-mtune" "Extra Flags" "PGO"
-        printf "|       |          | %-6s | %-7s |          |      |                 |                  |                      |     |\n" "Run" "Compile"
-        printf "|-------|----------|--------|---------|----------|------|-----------------|------------------|----------------------|-----|\n"
+        printf "| %-5s | %-8s | %-8s | %-15s | %-4s | %-15s | %-15s | %-20s | %-3s |\n" "Rank" "GFLOPS" "GFLOP/s" "Time (s)" "Opt" "-march" "-mtune" "Extra Flags" "PGO"
+        printf "|       |          |          | %-6s | %-7s |      |                 |                  |                      |     |\n" "Run" "Compile"
+        printf "|-------|----------|----------|--------|---------|------|-----------------|------------------|----------------------|-----|\n"
     else
-        printf "| %-5s | %-8s | %-15s | %-8s | %-4s | %-15s | %-15s | %-3s |\n" "Rank" "GFLOPS" "Time (s)" "GFLOP/s" "Opt" "-march" "-mtune" "PGO"
-        printf "|       |          | %-6s | %-7s |          |      |                 |                  |     |\n" "Run" "Compile"
-        printf "|-------|----------|--------|---------|----------|------|-----------------|------------------|-----|\n"
+        printf "| %-5s | %-8s | %-8s | %-15s | %-4s | %-15s | %-15s | %-3s |\n" "Rank" "GFLOPS" "GFLOP/s" "Time (s)" "Opt" "-march" "-mtune" "PGO"
+        printf "|       |          |          | %-6s | %-7s |      |                 |                  |     |\n" "Run" "Compile"
+        printf "|-------|----------|----------|--------|---------|------|-----------------|------------------|-----|\n"
     fi
     
     rank=1
@@ -746,9 +746,9 @@ for target_size in "${sizes[@]}"; do
                 extra_display=${extra_display%,}  # Remove trailing comma
                 [ -z "$extra_display" ] && extra_display="None"
                 
-                printf "| %-5d | %-8s | %-6s | %-7s | %-8s | %-4s | %-15s | %-15s | %-20s | %-3s |\n" "$rank" "$gflops" "$time" "$compile_time" "$gflop_per_s" "-$opt" "$march_flag" "$mtune_flag" "$extra_display" "$pgo_display"
+                printf "| %-5d | %-8s | %-8s | %-6s | %-7s | %-4s | %-15s | %-15s | %-20s | %-3s |\n" "$rank" "$gflops" "$gflop_per_s" "$time" "$compile_time" "-$opt" "$march_flag" "$mtune_flag" "$extra_display" "$pgo_display"
             else
-                printf "| %-5d | %-8s | %-6s | %-7s | %-8s | %-4s | %-15s | %-15s | %-3s |\n" "$rank" "$gflops" "$time" "$compile_time" "$gflop_per_s" "-$opt" "$march_flag" "$mtune_flag" "$pgo_display"
+                printf "| %-5d | %-8s | %-8s | %-6s | %-7s | %-4s | %-15s | %-15s | %-3s |\n" "$rank" "$gflops" "$gflop_per_s" "$time" "$compile_time" "-$opt" "$march_flag" "$mtune_flag" "$pgo_display"
             fi
             ((rank++))
         fi
