@@ -617,7 +617,6 @@ if [[ " ${sizes[@]} " =~ " medium " ]]; then
                         echo "Complete" > "$STATUS_DIR/$combo_id"
                     ) &
                 fi
-                ) &
             done
         done
     done
