@@ -96,14 +96,22 @@ for opt in "${opt_levels[@]}"; do
                         for fomit in 0 1; do
                             for funroll in 0 1; do
                                 for size in "${sizes[@]}"; do
-                                    echo "Pending" > "$STATUS_DIR/${opt}_${march}_${mtune}_${pgo}_${flto}${fomit}${funroll}_${size}"
+                                    if [ $pgo -eq 1 ]; then
+                                        echo "Pending" > "$STATUS_DIR/${opt}_${march}_${mtune}_${pgo}_${flto}${fomit}${funroll}_${size}"
+                                    else
+                                        echo "Pending" > "$STATUS_DIR/${opt}_${march}_${mtune}_${flto}${fomit}${funroll}_${size}"
+                                    fi
                                 done
                             done
                         done
                     done
                 else
                     for size in "${sizes[@]}"; do
-                        echo "Pending" > "$STATUS_DIR/${opt}_${march}_${mtune}_${pgo}_${size}"
+                        if [ $pgo -eq 1 ]; then
+                            echo "Pending" > "$STATUS_DIR/${opt}_${march}_${mtune}_${pgo}_${size}"
+                        else
+                            echo "Pending" > "$STATUS_DIR/${opt}_${march}_${mtune}_${size}"
+                        fi
                     done
                 fi
             done
@@ -224,7 +232,11 @@ for size in micro small; do
                                         
                                         # Run test in background
                                         (
-                                            combo_id="${opt}_${march}_${mtune}_${pgo}_${flto}${fomit}${funroll}_${size}"
+                                            if [ $pgo -eq 1 ]; then
+                                                combo_id="${opt}_${march}_${mtune}_${pgo}_${flto}${fomit}${funroll}_${size}"
+                                            else
+                                                combo_id="${opt}_${march}_${mtune}_${flto}${fomit}${funroll}_${size}"
+                                            fi
                                             echo "Running" > "$STATUS_DIR/$combo_id"
                                             
                                             # Add small delay to see state changes
@@ -330,7 +342,11 @@ for size in micro small; do
                         
                         # Run test in background
                         (
-                            combo_id="${opt}_${march}_${mtune}_${pgo}_${size}"
+                            if [ $pgo -eq 1 ]; then
+                                combo_id="${opt}_${march}_${mtune}_${pgo}_${size}"
+                            else
+                                combo_id="${opt}_${march}_${mtune}_${size}"
+                            fi
                             echo "Running" > "$STATUS_DIR/$combo_id"
                             
                             # Add small delay to see state changes
@@ -664,12 +680,8 @@ for target_size in "${sizes[@]}"; do
     autodetect_gflops_for_size=""
     
     for result in "${sorted[@]}"; do
-        if [ "$use_extra_flags" = true ]; then
-            IFS='|' read -r sort_key gflops time compile_time opt march mtune extra_flags size <<< "$result"
-        else
-            IFS='|' read -r sort_key gflops time compile_time opt march mtune size <<< "$result"
-            extra_flags=""
-        fi
+        IFS='|' read -r sort_key gflops time compile_time opt march mtune extra_flags size <<< "$result"
+        
         if [ "$size" = "$target_size" ]; then
             # Track best performance for this size
             if [ -z "$best_gflops_for_size" ]; then
