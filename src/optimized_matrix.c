@@ -60,7 +60,7 @@ int main(int argc, char *argv[]) {
     double gflops = (2.0 * N * N * N) / (time_sec * 1e9);
     
     printf("Time: %.3f seconds\n", time_sec);
-    printf("Performance: %.2f GFLOPS\n", gflops);
+    printf("Performance: %.4f GFLOPS\n", gflops);
     printf("Result check: C[0] = %.1f (expected: %.1f)\n", C[0], (float)N * 2.0f);
     
     free(A);
