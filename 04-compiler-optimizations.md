@@ -1,20 +1,66 @@
 
 ## Overview
 
-Compiler optimizations provide the highest return on investment for performance improvements. With minimal code changes, you can typically achieve 15-30% performance gains, and sometimes up to 50% for compute-intensive workloads.
+Using compile-time optimizations provides the quickest performance improvements with the least effort.  Performance gains of 15-30%+ just by modifying compile-time flags are very common.
 
-This section covers Neoverse-specific compiler optimizations, from basic flags to advanced techniques like Profile-Guided Optimization (PGO) and Link-Time Optimization (LTO).
+In this section, we walk you through optimizations including optimization levels, architecture targeting, Profile-Guided Optimization (PGO) and Link-Time Optimization (LTO).
 
-## Comprehensive Optimization Analysis
+## Optimization Levels and Architecture Targeting
 
-Start by running a complete analysis of all compiler optimization combinations:
+## 🔹 Compiler Optimization Levels
+
+| Flag     | Description | Typical Use Case |
+|----------|-------------|------------------|
+| **`-O0`** | No optimization, fast compilation, easy debugging. | Debug builds. |
+| **`-O1`** | Basic optimizations with minimal compile-time cost. | Quick builds with some speed. |
+| **`-O2`** | Standard “production” optimization, balance of speed and size. | Default for production. |
+| **`-O3`** | Aggressive optimizations, larger binaries, max performance focus. | Performance-critical workloads. |
+| **`-Ofast`** | Unsafe optimizations, ignores strict standards (e.g., relaxed math). | HPC, simulations, ML code (test correctness carefully). |
+
+
+Architecture-Specific Targeting
+
+The most important optimization is targeting your specific Neoverse processor:
+
+```bash
+# Neoverse N1
+CFLAGS="-march=armv8.2-a+fp16+rcpc+dotprod+crypto -mtune=neoverse-n1"
+
+# Neoverse N2  
+CFLAGS="-march=armv9-a+sve2+bf16+i8mm -mtune=neoverse-n2"
+
+# Neoverse V1
+CFLAGS="-march=armv8.4-a+sve+bf16+i8mm -mtune=neoverse-v1"
+
+# Neoverse V2
+CFLAGS="-march=armv9-a+sve2+bf16+i8mm -mtune=neoverse-v2"
+```
+
+**What these flags do:**
+- `-march`: Enables instruction set features available on the target
+- `-mtune`: Optimizes instruction scheduling for the specific processor
+- Feature flags (`+sve2`, `+bf16`, etc.): Enable specific instruction extensions
+
+
+## Advanced Flags
+
+| Flag | Description | Notes | Recommended Usage |
+|------|-------------|-------|-------------------|
+| **`-flto`** | **Link Time Optimization (LTO):** optimizer runs across multiple files at link time. | Produces smaller, faster binaries. Longer build times. | Safe for production when longer builds are acceptable. |
+| **`-fomit-frame-pointer`** | Removes frame pointer register usage, freeing it for other optimizations. | Enabled by default at higher `-O` levels (except for debugging). | Use in release builds; avoid if you need precise debugging/profiling. |
+| **`-funroll-loops`** | Aggressively unrolls loops for speed. | Often enabled at `-O3`, may increase binary size. | Use for performance-critical, loop-heavy code (HPC/ML). |
+| **`-ffast-math`** | Optimizes floating point math aggressively (reordering, removing edge-case checks). | Included in `-Ofast`. Unsafe for strict IEEE compliance. | Use only if numerical reproducibility is not critical. |
+| **`-march=<arch>`** | Target a **specific CPU family** (e.g., `-march=skylake`, `-march=armv8-a`). | Great for deployment-specific binaries; not portable across CPUs. | Use when building for a known deployment environment. |
+| **`-mtune=<cpu>`** | Optimize instruction scheduling for a specific CPU, but **still runs on older CPUs**. | Example: `-mtune=skylake` — tuned for Skylake but still portable. | Safe default; combine with `-O2` or `-O3` for extra gains. |
+
+Begin by running a baseline and then all combinations of optimizations and architecture targeting with this command:
 
 ```bash
 # Test all combinations of optimization levels, architecture flags, and matrix sizes
 ./scripts/04/test-all-combinations.sh
 ```
 
-A baseline is established with no optimizations (mtune, march, or -O flags). The script then tests all combinations of optimization levels, architecture targeting, and matrix sizes to provide a comprehensive performance overview.
+The baseline is established with no compiler optimizations (mtune, march, or -O flags). The script then tests all combinations of optimization levels, architecture targeting, and matrix sizes to provide a comprehensive performance overview.
 
 
 This automatically tests every combination of:
@@ -50,29 +96,7 @@ You may think that always compiling with optimization level of -O3 and with Neov
 
 ## Advanced Compiler Optimizations
 
-### Architecture-Specific Targeting
-
-The most important optimization is targeting your specific Neoverse processor:
-
-```bash
-# Neoverse N1
-CFLAGS="-march=armv8.2-a+fp16+rcpc+dotprod+crypto -mtune=neoverse-n1"
-
-# Neoverse N2  
-CFLAGS="-march=armv9-a+sve2+bf16+i8mm -mtune=neoverse-n2"
-
-# Neoverse V1
-CFLAGS="-march=armv8.4-a+sve+bf16+i8mm -mtune=neoverse-v1"
-
-# Neoverse V2
-CFLAGS="-march=armv9-a+sve2+bf16+i8mm -mtune=neoverse-v2"
-```
-
-**What these flags do:**
-- `-march`: Enables instruction set features available on the target
-- `-mtune`: Optimizes instruction scheduling for the specific processor
-- Feature flags (`+sve2`, `+bf16`, etc.): Enable specific instruction extensions
-
+### A
 ### Optimization Levels
 
 ```bash
