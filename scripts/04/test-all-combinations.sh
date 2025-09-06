@@ -132,13 +132,15 @@ done
         echo "Updated: $(date '+%H:%M:%S')"
         echo
         
-        # Count status by matrix size
-        for size in "${sizes[@]}"; do
-            size_pending=$(grep -l "Pending" "$STATUS_DIR"/*_${size} 2>/dev/null | wc -l)
-            size_running=$(grep -l "Running" "$STATUS_DIR"/*_${size} 2>/dev/null | wc -l)
-            size_complete=$(grep -l "Complete" "$STATUS_DIR"/*_${size} 2>/dev/null | wc -l)
-            
-            echo "${size} matrix compile runs pending/running/complete ${size_pending}/${size_running}/${size_complete}"
+        # Count status by matrix size (only micro and small for first monitor)
+        for size in "micro" "small"; do
+            if [[ " ${sizes[@]} " =~ " ${size} " ]]; then
+                size_pending=$(grep -l "Pending" "$STATUS_DIR"/*_${size} 2>/dev/null | wc -l)
+                size_running=$(grep -l "Running" "$STATUS_DIR"/*_${size} 2>/dev/null | wc -l)
+                size_complete=$(grep -l "Complete" "$STATUS_DIR"/*_${size} 2>/dev/null | wc -l)
+                
+                echo "${size} matrix compile runs pending/running/complete ${size_pending}/${size_running}/${size_complete}"
+            fi
         done
         echo
         
