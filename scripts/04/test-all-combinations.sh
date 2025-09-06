@@ -426,8 +426,13 @@ for size in micro small; do
 fi
 done
 
-# Wait for micro and small to complete
-wait
+# Wait for micro and small compilation jobs to complete
+# (Don't wait for monitor process - it runs until killed)
+for job in $(jobs -p); do
+    if [ "$job" != "$MONITOR_PID" ]; then
+        wait $job
+    fi
+done
 
 # Kill the monitor process and restart it for medium tests
 kill $MONITOR_PID 2>/dev/null
