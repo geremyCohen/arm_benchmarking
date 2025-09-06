@@ -170,8 +170,10 @@ echo
 # Function to wait for job slots
 wait_for_slot() {
     while [ $(grep -l "Running" "$STATUS_DIR"/* 2>/dev/null | wc -l) -ge $MAX_JOBS ]; do
-        sleep 0.1
+        sleep 0.2
     done
+    # Small additional delay to prevent race conditions
+    sleep 0.05
 }
 
 # Results array to store all combinations
