@@ -28,7 +28,7 @@ int main(int argc, char *argv[]) {
     if (argc > 1) {
         if (strcmp(argv[1], "micro") == 0) N = 64;
         else if (strcmp(argv[1], "small") == 0) N = 512;
-        else if (strcmp(argv[1], "medium") == 0) N = 2048;
+        else if (strcmp(argv[1], "medium") == 0) N = 1024;
         else if (strcmp(argv[1], "large") == 0) N = 8192;
     }
     
