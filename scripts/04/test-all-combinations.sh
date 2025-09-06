@@ -161,8 +161,9 @@ done
 ) &
 MONITOR_PID=$!
 
-# Create results directory
+# Create results and temp directories
 mkdir -p results/comprehensive
+mkdir -p temp
 mkdir -p /tmp/combo_results_$$
 
 # Calculate max parallel jobs (cores - 1, minimum 1)
@@ -244,7 +245,7 @@ for size in micro small; do
                                             # Add small delay to see state changes
                                             sleep 0.5
                                             
-                                            exe_name="combo_${opt}_${march}_${mtune}_${pgo}_${flto}${fomit}${funroll}_${size}_$$_${RANDOM}"
+                                            exe_name="temp/combo_${opt}_${march}_${mtune}_${pgo}_${flto}${fomit}${funroll}_${size}_$$_${RANDOM}"
                                             
                                             if [ $pgo -eq 1 ]; then
                                                 # PGO compilation: generate -> run -> use
@@ -354,7 +355,7 @@ for size in micro small; do
                             # Add small delay to see state changes
                             sleep 0.5
                             
-                            exe_name="combo_${opt}_${march}_${mtune}_${pgo}_${size}_$$_${RANDOM}"
+                            exe_name="temp/combo_${opt}_${march}_${mtune}_${pgo}_${size}_$$_${RANDOM}"
                             
                             # Time the compilation
                             if [ $pgo -eq 1 ]; then
@@ -533,7 +534,7 @@ if [[ " ${sizes[@]} " =~ " medium " ]]; then
                                         # Add small delay to see state changes
                                         sleep 0.5
                                         
-                                        exe_name="combo_${opt}_${march}_${mtune}_${flto}${fomit}${funroll}_medium_$$_${RANDOM}"
+                                        exe_name="temp/combo_${opt}_${march}_${mtune}_${flto}${fomit}${funroll}_medium_$$_${RANDOM}"
                                         
                                         # Time the compilation
                                         compile_start=$(date +%s.%N)
@@ -600,7 +601,7 @@ if [[ " ${sizes[@]} " =~ " medium " ]]; then
                         # Add small delay to see state changes
                         sleep 0.5
                         
-                        exe_name="combo_${opt}_${march}_${mtune}_medium_$$_${RANDOM}"
+                        exe_name="temp/combo_${opt}_${march}_${mtune}_medium_$$_${RANDOM}"
                         
                         # Time the compilation
                         compile_start=$(date +%s.%N)

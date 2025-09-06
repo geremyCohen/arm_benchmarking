@@ -2,3 +2,21 @@
 /.idea/arm_benchmarking.iml
 /.idea/workspace.xml
 /.idea/misc.xml
+
+# Build artifacts
+build/
+*.o
+*.so
+*.a
+
+# Temporary benchmark executables
+combo_*
+temp/
+
+# Profile-guided optimization files
+*.gcda
+*.gcno
+
+# Test results (temporary)
+/tmp/combo_results_*
+/tmp/benchmark_status_*
