@@ -144,8 +144,14 @@ echo -e "micro+small\ny\ny" | ./scripts/04/test-all-combinations.sh
 ## Repository Status
 - **Remote**: https://github.com/geremyCohen/arm_benchmarking.git
 - **Branch**: main
-- **Last Push**: de9ba20 (Fix medium monitor deadlock issue)
+- **Last Push**: 16d24fd (File organization and cleanup)
 - **Status**: All changes committed and pushed
+
+## File Organization (COMPLETED)
+- **Cleaned up**: 207+ temporary combo_* executable files moved to temp/
+- **Updated .gitignore**: Excludes combo_*, temp/, *.gcda, *.gcno, /tmp/combo_results_*
+- **Script updated**: Now compiles executables in temp/ directory
+- **Main directory**: Clean and organized, only permanent files visible
 
 ## Next Steps (If Needed)
 1. **Medium-size PGO**: Currently PGO works for micro/small, medium needs implementation
