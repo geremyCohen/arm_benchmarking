@@ -1,0 +1,30 @@
+127.0.0.1 - - [03/Sep/2025 04:13:32] "HEAD / HTTP/1.1" 200 -
+----------------------------------------
+Exception occurred during processing of request from ('127.0.0.1', 33440)
+Traceback (most recent call last):
+  File "/usr/lib/python3.12/socketserver.py", line 318, in _handle_request_noblock
+    self.process_request(request, client_address)
+  File "/usr/lib/python3.12/socketserver.py", line 349, in process_request
+    self.finish_request(request, client_address)
+  File "/usr/lib/python3.12/socketserver.py", line 362, in finish_request
+    self.RequestHandlerClass(request, client_address, self)
+  File "/home/ubuntu/arm_benchmarking/dashboard/server.py", line 18, in __init__
+    super().__init__(*args, directory=str(Path(__file__).parent), **kwargs)
+  File "/usr/lib/python3.12/http/server.py", line 672, in __init__
+    super().__init__(*args, **kwargs)
+  File "/usr/lib/python3.12/socketserver.py", line 761, in __init__
+    self.handle()
+  File "/usr/lib/python3.12/http/server.py", line 436, in handle
+    self.handle_one_request()
+  File "/usr/lib/python3.12/http/server.py", line 424, in handle_one_request
+    method()
+  File "/home/ubuntu/arm_benchmarking/dashboard/server.py", line 22, in do_GET
+    self.send_api_response(self.get_benchmark_data())
+                           ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ubuntu/arm_benchmarking/dashboard/server.py", line 62, in get_benchmark_data
+    data['baseline'][size.strip()] = float(gflops.strip())
+                                     ^^^^^^^^^^^^^^^^^^^^^
+ValueError: could not convert string to float: '0.74 GFLOPS (0.001s)'
+----------------------------------------
+127.0.0.1 - - [03/Sep/2025 04:13:42] "GET /api/system HTTP/1.1" 200 -
+127.0.0.1 - - [03/Sep/2025 04:13:45] "GET / HTTP/1.1" 200 -
