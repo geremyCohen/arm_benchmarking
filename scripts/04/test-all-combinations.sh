@@ -6,11 +6,11 @@ echo "=== Comprehensive Compiler Optimization Analysis ==="
 echo
 
 # Prompt for matrix sizes
-echo -n "Test sizes: micro+small (default) or all including medium? [micro+small/all]: "
+echo -n "Test sizes: micro+small (default) or all including medium? [micro+small/y]: "
 read size_choice
 echo
 
-if [[ "$size_choice" == "all" ]]; then
+if [[ "$size_choice" == "y" || "$size_choice" == "Y" ]]; then
     sizes=("micro" "small" "medium")
     echo "Testing all sizes: micro, small, medium"
 else
