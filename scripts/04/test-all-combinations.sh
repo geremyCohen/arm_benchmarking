@@ -1,9 +1,26 @@
 #!/bin/bash
-# test-all-combinations.sh - Test all combinations with real-time status using temp files
-# Uses O0/None/None results as baseline for performance comparisons (no separate baseline script needed)
+# test-all-combinations.sh - Test all combinations with consolidated logic for all matrix sizes
+# Uses O0/None/None results as baseline for performance comparisons
 
 echo "=== Comprehensive Compiler Optimization Analysis ==="
 echo
+
+# Clean previous results
+rm -rf results/comprehensive/*
+rm -rf temp/*
+
+# Prompt for number of runs per combination
+echo -n "Number of runs per combination for accuracy (1-10) [1]: "
+read -t 3 runs_choice
+echo
+
+if [[ "$runs_choice" =~ ^[2-9]$|^10$ ]]; then
+    num_runs=$runs_choice
+    echo "Running each combination $num_runs times (using trimmed mean to remove outliers)"
+else
+    num_runs=1
+    echo "Running each combination once (single run)"
+fi
 
 # Prompt for matrix sizes
 echo -n "Test sizes: micro+small (default) or all including medium? [micro+small/y]: "
@@ -47,6 +64,36 @@ else
 fi
 echo
 
+# Function to calculate trimmed mean (removes outliers)
+calculate_trimmed_mean() {
+    local values=("$@")
+    local count=${#values[@]}
+    
+    if [ $count -eq 1 ]; then
+        echo "${values[0]}"
+        return
+    fi
+    
+    # Sort values
+    IFS=$'\n' sorted=($(printf '%s\n' "${values[@]}" | sort -n))
+    
+    # Remove outliers (top/bottom 20% or 1 value if <5 runs)
+    local remove_count=1
+    if [ $count -ge 5 ]; then
+        remove_count=$((count / 5))
+    fi
+    
+    # Calculate trimmed mean
+    local sum=0
+    local used_count=0
+    for ((i=remove_count; i<count-remove_count; i++)); do
+        sum=$(echo "scale=6; $sum + ${sorted[i]}" | bc -l)
+        ((used_count++))
+    done
+    
+    echo "scale=3; $sum / $used_count" | bc -l
+}
+
 # Detect Neoverse processor type
 NEOVERSE_TYPE=$(lscpu | grep "Model name" | awk '{print $3}')
 case $NEOVERSE_TYPE in
@@ -85,35 +132,34 @@ opt_levels=("O0" "O1" "O2" "O3")
 march_options=("none" "native" "neoverse")
 mtune_options=("none" "native" "neoverse")
 
-# Initialize status files
-for opt in "${opt_levels[@]}"; do
-    for march in "${march_options[@]}"; do
-        for mtune in "${mtune_options[@]}"; do
-            for pgo in $([ "$use_pgo" = true ] && echo "0 1" || echo "0"); do
-                if [ "$use_extra_flags" = true ]; then
-                    # Generate all combinations of extra flags (2^3 = 8 combinations)
-                    for flto in 0 1; do
-                        for fomit in 0 1; do
-                            for funroll in 0 1; do
-                                for size in "${sizes[@]}"; do
+# Initialize status files for all combinations
+for size in "${sizes[@]}"; do
+    for opt in "${opt_levels[@]}"; do
+        for march in "${march_options[@]}"; do
+            for mtune in "${mtune_options[@]}"; do
+                for pgo in $([ "$use_pgo" = true ] && echo "0 1" || echo "0"); do
+                    if [ "$use_extra_flags" = true ]; then
+                        for flto in 0 1; do
+                            for fomit in 0 1; do
+                                for funroll in 0 1; do
                                     if [ $pgo -eq 1 ]; then
-                                        echo "Pending" > "$STATUS_DIR/${opt}_${march}_${mtune}_${pgo}_${flto}${fomit}${funroll}_${size}"
+                                        combo_id="${opt}_${march}_${mtune}_${pgo}_${flto}${fomit}${funroll}_${size}"
                                     else
-                                        echo "Pending" > "$STATUS_DIR/${opt}_${march}_${mtune}_${flto}${fomit}${funroll}_${size}"
+                                        combo_id="${opt}_${march}_${mtune}_${flto}${fomit}${funroll}_${size}"
                                     fi
+                                    echo "Pending" > "$STATUS_DIR/$combo_id"
                                 done
                             done
                         done
-                    done
-                else
-                    for size in "${sizes[@]}"; do
+                    else
                         if [ $pgo -eq 1 ]; then
-                            echo "Pending" > "$STATUS_DIR/${opt}_${march}_${mtune}_${pgo}_${size}"
+                            combo_id="${opt}_${march}_${mtune}_${pgo}_${size}"
                         else
-                            echo "Pending" > "$STATUS_DIR/${opt}_${march}_${mtune}_${size}"
+                            combo_id="${opt}_${march}_${mtune}_${size}"
                         fi
-                    done
-                fi
+                        echo "Pending" > "$STATUS_DIR/$combo_id"
+                    fi
+                done
             done
         done
     done
@@ -122,26 +168,34 @@ done
 # Start status monitor in background
 (
     while [ -d "$STATUS_DIR" ]; do
-        # Clear screen and move to top
         printf "\033[2J\033[H"
-        
         echo "=== Benchmark Status Dashboard ==="
         echo "Updated: $(date '+%H:%M:%S')"
         echo
         
-        # Count status by matrix size (only micro and small for first monitor)
-        for size in "micro" "small"; do
-            if [[ " ${sizes[@]} " =~ " ${size} " ]]; then
-                size_pending=$(grep -l "Pending" "$STATUS_DIR"/*_${size} 2>/dev/null | wc -l)
-                size_running=$(grep -l "Running" "$STATUS_DIR"/*_${size} 2>/dev/null | wc -l)
-                size_complete=$(grep -l "Complete" "$STATUS_DIR"/*_${size} 2>/dev/null | wc -l)
-                
+        for size in "${sizes[@]}"; do
+            size_pending=$(find "$STATUS_DIR" -name "*_${size}" -exec grep -l "Pending" {} \; 2>/dev/null | wc -l)
+            size_running=$(find "$STATUS_DIR" -name "*_${size}" -exec grep -l "Running" {} \; 2>/dev/null | wc -l)
+            size_complete=$(find "$STATUS_DIR" -name "*_${size}" -exec grep -l "Complete" {} \; 2>/dev/null | wc -l)
+            
+            current_run=""
+            if [ $size_running -gt 0 ]; then
+                running_status=$(find "$STATUS_DIR" -name "*_${size}" -exec grep "Running" {} \; 2>/dev/null | head -1)
+                if [[ "$running_status" =~ Running\ \(([0-9]+)/[0-9]+\) ]]; then
+                    current_run="${BASH_REMATCH[1]}"
+                else
+                    current_run="1"
+                fi
+            fi
+            
+            if [ -n "$current_run" ]; then
+                echo "${size} matrix compile runs run#/pending/running/complete ${current_run}/${size_pending}/${size_running}/${size_complete}"
+            else
                 echo "${size} matrix compile runs pending/running/complete ${size_pending}/${size_running}/${size_complete}"
             fi
         done
         echo
         
-        # Exit if all tests are complete
         total=$(ls "$STATUS_DIR" 2>/dev/null | wc -l)
         complete=$(grep -l "Complete" "$STATUS_DIR"/* 2>/dev/null | wc -l)
         if [ $complete -eq $total ]; then
@@ -158,7 +212,7 @@ mkdir -p results/comprehensive
 mkdir -p temp
 mkdir -p /tmp/combo_results_$$
 
-# Calculate max parallel jobs (cores - 1, minimum 1)
+# Calculate max parallel jobs
 MAX_JOBS=$(($(nproc) - 1))
 if [ $MAX_JOBS -lt 1 ]; then
     MAX_JOBS=1
@@ -172,91 +226,81 @@ wait_for_slot() {
     while [ $(grep -l "Running" "$STATUS_DIR"/* 2>/dev/null | wc -l) -ge $MAX_JOBS ]; do
         sleep 0.2
     done
-    # Small additional delay to prevent race conditions
     sleep 0.05
 }
 
-# Results array to store all combinations
 declare -a all_results
 
-# Test micro and small sizes first
-for size in micro small; do
-    if [[ " ${sizes[@]} " =~ " ${size} " ]]; then
-        for opt in "${opt_levels[@]}"; do
-            for march in "${march_options[@]}"; do
-                for mtune in "${mtune_options[@]}"; do
-                    for pgo in $([ "$use_pgo" = true ] && echo "0 1" || echo "0"); do
-                        if [ "$use_extra_flags" = true ]; then
-                        # Test all 16 combinations of extra flags (2^4)
+# UNIFIED EXECUTION LOGIC FOR ALL MATRIX SIZES
+for size in "${sizes[@]}"; do
+    echo "Processing $size matrices..."
+    
+    for opt in "${opt_levels[@]}"; do
+        for march in "${march_options[@]}"; do
+            for mtune in "${mtune_options[@]}"; do
+                for pgo in $([ "$use_pgo" = true ] && echo "0 1" || echo "0"); do
+                    if [ "$use_extra_flags" = true ]; then
                         for flto in 0 1; do
                             for fomit in 0 1; do
                                 for funroll in 0 1; do
                                     # Build flags
                                     flags="-$opt"
+                                    
+                                    case $march in
+                                        "native") flags="$flags -march=native" ;;
+                                        "neoverse") flags="$flags -march=$MARCH_SPECIFIC" ;;
+                                    esac
+                                    
+                                    case $mtune in
+                                        "native") flags="$flags -mtune=native" ;;
+                                        "neoverse") flags="$flags -mtune=$MTUNE_SPECIFIC" ;;
+                                    esac
+                                    
+                                    # Add extra flags
+                                    extra_desc=""
+                                    [ $flto -eq 1 ] && flags="$flags -flto" && extra_desc="${extra_desc}flto,"
+                                    [ $fomit -eq 1 ] && flags="$flags -fomit-frame-pointer" && extra_desc="${extra_desc}fomit-frame-pointer,"
+                                    [ $funroll -eq 1 ] && flags="$flags -funroll-loops" && extra_desc="${extra_desc}funroll-loops,"
+                                    extra_desc=${extra_desc%,}
+                                    
+                                    march_desc="$march"
+                                    mtune_desc="$mtune"
+                                    
+                                    wait_for_slot
+                                    
+                                    # Run test in background
+                                    (
+                                        if [ $pgo -eq 1 ]; then
+                                            combo_id="${opt}_${march}_${mtune}_${pgo}_${flto}${fomit}${funroll}_${size}"
+                                        else
+                                            combo_id="${opt}_${march}_${mtune}_${flto}${fomit}${funroll}_${size}"
+                                        fi
+                                        echo "Running" > "$STATUS_DIR/$combo_id"
                                         
-                                        # Add march flag
-                                        case $march in
-                                            "native")
-                                                flags="$flags -march=native"
-                                                ;;
-                                            "neoverse")
-                                                flags="$flags -march=$MARCH_SPECIFIC"
-                                                ;;
-                                        esac
+                                        # Arrays to store multiple run results
+                                        gflops_runs=()
+                                        time_runs=()
+                                        compile_time_runs=()
                                         
-                                        # Add mtune flag
-                                        case $mtune in
-                                            "native")
-                                                flags="$flags -mtune=native"
-                                                ;;
-                                            "neoverse")
-                                                flags="$flags -mtune=$MTUNE_SPECIFIC"
-                                                ;;
-                                        esac
-                                        
-                                        # Add extra flags
-                                        extra_desc=""
-                                        [ $flto -eq 1 ] && flags="$flags -flto" && extra_desc="${extra_desc}flto,"
-                                        [ $fomit -eq 1 ] && flags="$flags -fomit-frame-pointer" && extra_desc="${extra_desc}fomit-frame-pointer,"
-                                        [ $funroll -eq 1 ] && flags="$flags -funroll-loops" && extra_desc="${extra_desc}funroll-loops,"
-                                        extra_desc=${extra_desc%,}  # Remove trailing comma
-                                        
-                                        march_desc="$march"
-                                        mtune_desc="$mtune"
-                                        
-                                        # Wait for available job slot
-                                        wait_for_slot
-                                        
-                                        # Run test in background
-                                        (
-                                            if [ $pgo -eq 1 ]; then
-                                                combo_id="${opt}_${march}_${mtune}_${pgo}_${flto}${fomit}${funroll}_${size}"
-                                            else
-                                                combo_id="${opt}_${march}_${mtune}_${flto}${fomit}${funroll}_${size}"
-                                            fi
-                                            echo "Running" > "$STATUS_DIR/$combo_id"
+                                        # Run multiple times
+                                        for ((run=1; run<=num_runs; run++)); do
+                                            echo "Running ($run/$num_runs)" > "$STATUS_DIR/$combo_id"
                                             
-                                            # Add small delay to see state changes
-                                            sleep 0.5
-                                            
-                                            exe_name="temp/combo_${opt}_${march}_${mtune}_${pgo}_${flto}${fomit}${funroll}_${size}_$$_${RANDOM}"
+                                            exe_name="temp/combo_${opt}_${march}_${mtune}_${pgo}_${flto}${fomit}${funroll}_${size}_$$_${RANDOM}_${run}"
                                             
                                             if [ $pgo -eq 1 ]; then
-                                                # PGO compilation: generate -> run -> use
-                                                # Step 1: Compile with -fprofile-generate
+                                                # PGO compilation
                                                 compile1_start=$(date +%s.%N)
                                                 gcc $flags -fprofile-generate -Wall -o ${exe_name}_gen src/optimized_matrix.c -lm 2>/dev/null
                                                 compile1_end=$(date +%s.%N)
                                                 compile1_time=$(echo "scale=3; $compile1_end - $compile1_start" | bc -l)
                                                 
                                                 if [ $? -eq 0 ]; then
-                                                    # Step 2: Run to generate profile data
                                                     profile_start=$(date +%s.%N)
                                                     ./${exe_name}_gen $size >/dev/null 2>&1
                                                     profile_end=$(date +%s.%N)
                                                     profile_time=$(echo "scale=3; $profile_end - $profile_start" | bc -l)
                                                     
-                                                    # Step 3: Compile with -fprofile-use
                                                     compile2_start=$(date +%s.%N)
                                                     gcc $flags -fprofile-use -Wall -o $exe_name src/optimized_matrix.c -lm 2>/dev/null
                                                     compile2_end=$(date +%s.%N)
@@ -266,75 +310,78 @@ for size in micro small; do
                                                     
                                                     if [ $? -eq 0 ]; then
                                                         result=$(./$exe_name $size 2>/dev/null)
-                                                        gflops=$(echo "$result" | grep "Performance:" | awk '{print $2}')
-                                                        time=$(echo "$result" | grep "Time:" | awk '{print $2}')
+                                                        run_gflops=$(echo "$result" | grep "Performance:" | awk '{print $2}')
+                                                        run_time=$(echo "$result" | grep "Time:" | awk '{print $2}')
                                                         
-                                                        if [ ! -z "$gflops" ]; then
-                                                            sort_key=$(printf "%08.2f" $(echo "$gflops * 100" | bc -l) | tr '.' '_')
-                                                            echo "$sort_key|$gflops|$time|$total_compile_time|$opt|$march_desc|$mtune_desc|$extra_desc+PGO|$size" > /tmp/combo_results_$$/${combo_id} 2>/dev/null
+                                                        if [ ! -z "$run_gflops" ]; then
+                                                            gflops_runs+=("$run_gflops")
+                                                            time_runs+=("$run_time")
+                                                            compile_time_runs+=("$total_compile_time")
                                                         fi
-                                                        
-                                                        rm -f $exe_name ${exe_name}_gen *.gcda 2>/dev/null
                                                     fi
+                                                    rm -f $exe_name ${exe_name}_gen *.gcda 2>/dev/null
                                                 fi
                                             else
-                                                # Standard compilation without PGO
-                                                # Time the compilation
+                                                # Standard compilation
                                                 compile_start=$(date +%s.%N)
                                                 gcc $flags -Wall -o $exe_name src/optimized_matrix.c -lm 2>/dev/null
                                                 compile_end=$(date +%s.%N)
-                                                compile_time=$(echo "scale=3; $compile_end - $compile_start" | bc -l)
+                                                run_compile_time=$(echo "scale=3; $compile_end - $compile_start" | bc -l)
                                                 
                                                 if [ $? -eq 0 ]; then
                                                     result=$(./$exe_name $size 2>/dev/null)
-                                                    gflops=$(echo "$result" | grep "Performance:" | awk '{print $2}')
-                                                    time=$(echo "$result" | grep "Time:" | awk '{print $2}')
+                                                    run_gflops=$(echo "$result" | grep "Performance:" | awk '{print $2}')
+                                                    run_time=$(echo "$result" | grep "Time:" | awk '{print $2}')
                                                     
-                                                    if [ ! -z "$gflops" ]; then
-                                                        sort_key=$(printf "%08.2f" $(echo "$gflops * 100" | bc -l) | tr '.' '_')
-                                                        echo "$sort_key|$gflops|$time|$compile_time|$opt|$march_desc|$mtune_desc|$extra_desc|$size" > /tmp/combo_results_$$/${combo_id} 2>/dev/null
+                                                    if [ ! -z "$run_gflops" ]; then
+                                                        gflops_runs+=("$run_gflops")
+                                                        time_runs+=("$run_time")
+                                                        compile_time_runs+=("$run_compile_time")
                                                     fi
-                                                    
                                                     rm -f $exe_name 2>/dev/null
                                                 fi
                                             fi
+                                        done
+                                        
+                                        # Calculate trimmed means
+                                        if [ ${#gflops_runs[@]} -gt 0 ]; then
+                                            avg_gflops=$(calculate_trimmed_mean "${gflops_runs[@]}")
+                                            avg_time=$(calculate_trimmed_mean "${time_runs[@]}")
+                                            avg_compile_time=$(calculate_trimmed_mean "${compile_time_runs[@]}")
                                             
-                                            # Add delay before marking complete
-                                            sleep 0.5
-                                            echo "Complete" > "$STATUS_DIR/$combo_id"
-                                        ) &
+                                            sort_key=$(printf "%08.2f" $(echo "$avg_gflops * 100" | bc -l) | tr '.' '_')
+                                            runs_detail=$(printf "%s," "${gflops_runs[@]}")
+                                            runs_detail=${runs_detail%,}
+                                            
+                                            if [ $pgo -eq 1 ]; then
+                                                echo "$sort_key|$avg_gflops|$avg_time|$avg_compile_time|$opt|$march_desc|$mtune_desc|$extra_desc+PGO|$size|[$runs_detail]" > /tmp/combo_results_$$/${combo_id} 2>/dev/null
+                                            else
+                                                echo "$sort_key|$avg_gflops|$avg_time|$avg_compile_time|$opt|$march_desc|$mtune_desc|$extra_desc|$size|[$runs_detail]" > /tmp/combo_results_$$/${combo_id} 2>/dev/null
+                                            fi
+                                        fi
+                                        
+                                        echo "Complete" > "$STATUS_DIR/$combo_id"
+                                    ) &
                                 done
                             done
                         done
                     else
-                        # Original logic without extra flags
-                        # Build flags
+                        # Standard flags only
                         flags="-$opt"
                         
-                        # Add march flag
                         case $march in
-                            "native")
-                                flags="$flags -march=native"
-                                ;;
-                            "neoverse")
-                                flags="$flags -march=$MARCH_SPECIFIC"
-                                ;;
+                            "native") flags="$flags -march=native" ;;
+                            "neoverse") flags="$flags -march=$MARCH_SPECIFIC" ;;
                         esac
                         
-                        # Add mtune flag
                         case $mtune in
-                            "native")
-                                flags="$flags -mtune=native"
-                                ;;
-                            "neoverse")
-                                flags="$flags -mtune=$MTUNE_SPECIFIC"
-                                ;;
+                            "native") flags="$flags -mtune=native" ;;
+                            "neoverse") flags="$flags -mtune=$MTUNE_SPECIFIC" ;;
                         esac
                         
                         march_desc="$march"
                         mtune_desc="$mtune"
                         
-                        # Wait for available job slot
                         wait_for_slot
                         
                         # Run test in background
@@ -346,71 +393,89 @@ for size in micro small; do
                             fi
                             echo "Running" > "$STATUS_DIR/$combo_id"
                             
-                            # Add small delay to see state changes
-                            sleep 0.5
+                            # Arrays to store multiple run results
+                            gflops_runs=()
+                            time_runs=()
+                            compile_time_runs=()
                             
-                            exe_name="temp/combo_${opt}_${march}_${mtune}_${pgo}_${size}_$$_${RANDOM}"
-                            
-                            # Time the compilation
-                            if [ $pgo -eq 1 ]; then
-                                # PGO compilation: generate -> run -> use
-                                # Step 1: Compile with -fprofile-generate
-                                compile1_start=$(date +%s.%N)
-                                gcc $flags -fprofile-generate -Wall -o ${exe_name}_gen src/optimized_matrix.c -lm 2>/dev/null
-                                compile1_end=$(date +%s.%N)
-                                compile1_time=$(echo "scale=3; $compile1_end - $compile1_start" | bc -l)
+                            # Run multiple times
+                            for ((run=1; run<=num_runs; run++)); do
+                                echo "Running ($run/$num_runs)" > "$STATUS_DIR/$combo_id"
                                 
-                                if [ $? -eq 0 ]; then
-                                    # Step 2: Run to generate profile data
-                                    profile_start=$(date +%s.%N)
-                                    ./${exe_name}_gen $size >/dev/null 2>&1
-                                    profile_end=$(date +%s.%N)
-                                    profile_time=$(echo "scale=3; $profile_end - $profile_start" | bc -l)
+                                exe_name="temp/combo_${opt}_${march}_${mtune}_${pgo}_${size}_$$_${RANDOM}_${run}"
+                                
+                                if [ $pgo -eq 1 ]; then
+                                    # PGO compilation
+                                    compile1_start=$(date +%s.%N)
+                                    gcc $flags -fprofile-generate -Wall -o ${exe_name}_gen src/optimized_matrix.c -lm 2>/dev/null
+                                    compile1_end=$(date +%s.%N)
+                                    compile1_time=$(echo "scale=3; $compile1_end - $compile1_start" | bc -l)
                                     
-                                    # Step 3: Compile with -fprofile-use
-                                    compile2_start=$(date +%s.%N)
-                                    gcc $flags -fprofile-use -Wall -o $exe_name src/optimized_matrix.c -lm 2>/dev/null
-                                    compile2_end=$(date +%s.%N)
-                                    compile2_time=$(echo "scale=3; $compile2_end - $compile2_start" | bc -l)
-                                    
-                                    total_compile_time=$(echo "scale=3; $compile1_time + $profile_time + $compile2_time" | bc -l)
+                                    if [ $? -eq 0 ]; then
+                                        profile_start=$(date +%s.%N)
+                                        ./${exe_name}_gen $size >/dev/null 2>&1
+                                        profile_end=$(date +%s.%N)
+                                        profile_time=$(echo "scale=3; $profile_end - $profile_start" | bc -l)
+                                        
+                                        compile2_start=$(date +%s.%N)
+                                        gcc $flags -fprofile-use -Wall -o $exe_name src/optimized_matrix.c -lm 2>/dev/null
+                                        compile2_end=$(date +%s.%N)
+                                        compile2_time=$(echo "scale=3; $compile2_end - $compile2_start" | bc -l)
+                                        
+                                        total_compile_time=$(echo "scale=3; $compile1_time + $profile_time + $compile2_time" | bc -l)
+                                        
+                                        if [ $? -eq 0 ]; then
+                                            result=$(./$exe_name $size 2>/dev/null)
+                                            run_gflops=$(echo "$result" | grep "Performance:" | awk '{print $2}')
+                                            run_time=$(echo "$result" | grep "Time:" | awk '{print $2}')
+                                            
+                                            if [ ! -z "$run_gflops" ]; then
+                                                gflops_runs+=("$run_gflops")
+                                                time_runs+=("$run_time")
+                                                compile_time_runs+=("$total_compile_time")
+                                            fi
+                                        fi
+                                        rm -f $exe_name ${exe_name}_gen *.gcda 2>/dev/null
+                                    fi
+                                else
+                                    # Standard compilation
+                                    compile_start=$(date +%s.%N)
+                                    gcc $flags -Wall -o $exe_name src/optimized_matrix.c -lm 2>/dev/null
+                                    compile_end=$(date +%s.%N)
+                                    run_compile_time=$(echo "scale=3; $compile_end - $compile_start" | bc -l)
                                     
                                     if [ $? -eq 0 ]; then
                                         result=$(./$exe_name $size 2>/dev/null)
-                                        gflops=$(echo "$result" | grep "Performance:" | awk '{print $2}')
-                                        time=$(echo "$result" | grep "Time:" | awk '{print $2}')
+                                        run_gflops=$(echo "$result" | grep "Performance:" | awk '{print $2}')
+                                        run_time=$(echo "$result" | grep "Time:" | awk '{print $2}')
                                         
-                                        if [ ! -z "$gflops" ]; then
-                                            sort_key=$(printf "%08.2f" $(echo "$gflops * 100" | bc -l) | tr '.' '_')
-                                            echo "$sort_key|$gflops|$time|$total_compile_time|$opt|$march_desc|$mtune_desc|PGO|$size" > /tmp/combo_results_$$/${combo_id} 2>/dev/null
+                                        if [ ! -z "$run_gflops" ]; then
+                                            gflops_runs+=("$run_gflops")
+                                            time_runs+=("$run_time")
+                                            compile_time_runs+=("$run_compile_time")
                                         fi
-                                        
-                                        rm -f $exe_name ${exe_name}_gen *.gcda 2>/dev/null
+                                        rm -f $exe_name 2>/dev/null
                                     fi
                                 fi
-                            else
-                                # Standard compilation without PGO
-                                compile_start=$(date +%s.%N)
-                                gcc $flags -Wall -o $exe_name src/optimized_matrix.c -lm 2>/dev/null
-                                compile_end=$(date +%s.%N)
-                                compile_time=$(echo "scale=3; $compile_end - $compile_start" | bc -l)
+                            done
+                            
+                            # Calculate trimmed means
+                            if [ ${#gflops_runs[@]} -gt 0 ]; then
+                                avg_gflops=$(calculate_trimmed_mean "${gflops_runs[@]}")
+                                avg_time=$(calculate_trimmed_mean "${time_runs[@]}")
+                                avg_compile_time=$(calculate_trimmed_mean "${compile_time_runs[@]}")
                                 
-                                if [ $? -eq 0 ]; then
-                                    result=$(./$exe_name $size 2>/dev/null)
-                                    gflops=$(echo "$result" | grep "Performance:" | awk '{print $2}')
-                                    time=$(echo "$result" | grep "Time:" | awk '{print $2}')
-                                    
-                                    if [ ! -z "$gflops" ]; then
-                                        sort_key=$(printf "%08.2f" $(echo "$gflops * 100" | bc -l) | tr '.' '_')
-                                        echo "$sort_key|$gflops|$time|$compile_time|$opt|$march_desc|$mtune_desc||$size" > /tmp/combo_results_$$/${combo_id} 2>/dev/null
-                                    fi
-                                    
-                                    rm -f $exe_name 2>/dev/null
+                                sort_key=$(printf "%08.2f" $(echo "$avg_gflops * 100" | bc -l) | tr '.' '_')
+                                runs_detail=$(printf "%s," "${gflops_runs[@]}")
+                                runs_detail=${runs_detail%,}
+                                
+                                if [ $pgo -eq 1 ]; then
+                                    echo "$sort_key|$avg_gflops|$avg_time|$avg_compile_time|$opt|$march_desc|$mtune_desc|PGO|$size|[$runs_detail]" > /tmp/combo_results_$$/${combo_id} 2>/dev/null
+                                else
+                                    echo "$sort_key|$avg_gflops|$avg_time|$avg_compile_time|$opt|$march_desc|$mtune_desc||$size|[$runs_detail]" > /tmp/combo_results_$$/${combo_id} 2>/dev/null
                                 fi
                             fi
                             
-                            # Add delay before marking complete
-                            sleep 0.5
                             echo "Complete" > "$STATUS_DIR/$combo_id"
                         ) &
                     fi
@@ -418,304 +483,12 @@ for size in micro small; do
             done
         done
     done
-fi
 done
 
-# Wait for micro and small compilation jobs to complete
-# (Don't wait for monitor process - it runs until killed)
-for job in $(jobs -p); do
-    if [ "$job" != "$MONITOR_PID" ]; then
-        wait $job
-    fi
-done
-
-# Kill the monitor process and restart it for medium tests
+# Wait for all jobs to complete
+wait
 kill $MONITOR_PID 2>/dev/null
 wait $MONITOR_PID 2>/dev/null
-
-# Now run medium if requested
-if [[ " ${sizes[@]} " =~ " medium " ]]; then
-    # Restart monitor for medium tests
-    (
-        while [ -d "$STATUS_DIR" ]; do
-            # Clear screen and move to top
-            printf "\033[2J\033[H"
-            
-            echo "=== Benchmark Status Dashboard ==="
-            echo "Updated: $(date '+%H:%M:%S')"
-            echo
-            
-            # Count status by matrix size (only for medium tests)
-            size_pending=$(grep -l "Pending" "$STATUS_DIR"/*_medium 2>/dev/null | wc -l)
-            size_running=$(grep -l "Running" "$STATUS_DIR"/*_medium 2>/dev/null | wc -l)
-            size_complete=$(grep -l "Complete" "$STATUS_DIR"/*_medium 2>/dev/null | wc -l)
-            
-            # Only show if there are any medium status files
-            if [ $((size_pending + size_running + size_complete)) -gt 0 ]; then
-                echo "medium matrix compile runs pending/running/complete ${size_pending}/${size_running}/${size_complete}"
-            fi
-            echo
-            
-            # Exit if all tests are complete
-            total=$(ls "$STATUS_DIR" 2>/dev/null | wc -l)
-            complete=$(grep -l "Complete" "$STATUS_DIR"/* 2>/dev/null | wc -l)
-            if [ $complete -eq $total ]; then
-                break
-            fi
-            
-            sleep 1
-        done
-    ) &
-    MONITOR_PID=$!
-
-    for opt in "${opt_levels[@]}"; do
-        for march in "${march_options[@]}"; do
-            for mtune in "${mtune_options[@]}"; do
-                for pgo in $([ "$use_pgo" = true ] && echo "0 1" || echo "0"); do
-                    if [ "$use_extra_flags" = true ]; then
-                        # Test all 16 combinations of extra flags (2^4)
-                    for flto in 0 1; do
-                        for fomit in 0 1; do
-                            for funroll in 0 1; do
-                                # Build flags
-                                flags="-$opt"
-                                    
-                                    # Add march flag
-                                    case $march in
-                                        "native")
-                                            flags="$flags -march=native"
-                                            ;;
-                                        "neoverse")
-                                            flags="$flags -march=$MARCH_SPECIFIC"
-                                            ;;
-                                    esac
-                                    
-                                    # Add mtune flag
-                                    case $mtune in
-                                        "native")
-                                            flags="$flags -mtune=native"
-                                            ;;
-                                        "neoverse")
-                                            flags="$flags -mtune=$MTUNE_SPECIFIC"
-                                            ;;
-                                    esac
-                                    
-                                    # Add extra flags
-                                    extra_desc=""
-                                    [ $flto -eq 1 ] && flags="$flags -flto" && extra_desc="${extra_desc}flto,"
-                                    [ $fomit -eq 1 ] && flags="$flags -fomit-frame-pointer" && extra_desc="${extra_desc}fomit-frame-pointer,"
-                                    [ $funroll -eq 1 ] && flags="$flags -funroll-loops" && extra_desc="${extra_desc}funroll-loops,"
-                                    extra_desc=${extra_desc%,}  # Remove trailing comma
-                                    
-                                    march_desc="$march"
-                                    mtune_desc="$mtune"
-                                    
-                                    # Wait for available job slot
-                                    wait_for_slot
-                                    
-                                    # Run test in background
-                                    (
-                                        if [ $pgo -eq 1 ]; then
-                                            combo_id="${opt}_${march}_${mtune}_${pgo}_${flto}${fomit}${funroll}_medium"
-                                        else
-                                            combo_id="${opt}_${march}_${mtune}_${flto}${fomit}${funroll}_medium"
-                                        fi
-                                        echo "Running" > "$STATUS_DIR/$combo_id"
-                                        
-                                        # Add small delay to see state changes
-                                        sleep 0.5
-                                        
-                                        exe_name="temp/combo_${opt}_${march}_${mtune}_${pgo}_${flto}${fomit}${funroll}_medium_$$_${RANDOM}"
-                                        
-                                        if [ $pgo -eq 1 ]; then
-                                            # PGO compilation: generate -> run -> use
-                                            # Step 1: Compile with -fprofile-generate
-                                            compile1_start=$(date +%s.%N)
-                                            gcc $flags -fprofile-generate -Wall -o ${exe_name}_gen src/optimized_matrix.c -lm 2>/dev/null
-                                            compile1_end=$(date +%s.%N)
-                                            compile1_time=$(echo "scale=3; $compile1_end - $compile1_start" | bc -l)
-                                            
-                                            if [ $? -eq 0 ]; then
-                                                # Step 2: Run to generate profile data
-                                                profile_start=$(date +%s.%N)
-                                                ./${exe_name}_gen medium >/dev/null 2>&1
-                                                profile_end=$(date +%s.%N)
-                                                profile_time=$(echo "scale=3; $profile_end - $profile_start" | bc -l)
-                                                
-                                                # Step 3: Compile with -fprofile-use
-                                                compile2_start=$(date +%s.%N)
-                                                gcc $flags -fprofile-use -Wall -o $exe_name src/optimized_matrix.c -lm 2>/dev/null
-                                                compile2_end=$(date +%s.%N)
-                                                compile2_time=$(echo "scale=3; $compile2_end - $compile2_start" | bc -l)
-                                                
-                                                total_compile_time=$(echo "scale=3; $compile1_time + $profile_time + $compile2_time" | bc -l)
-                                                
-                                                if [ $? -eq 0 ]; then
-                                                    result=$(./$exe_name medium 2>/dev/null)
-                                                    gflops=$(echo "$result" | grep "Performance:" | awk '{print $2}')
-                                                    time=$(echo "$result" | grep "Time:" | awk '{print $2}')
-                                                    
-                                                    if [ ! -z "$gflops" ]; then
-                                                        sort_key=$(printf "%08.2f" $(echo "$gflops * 100" | bc -l) | tr '.' '_')
-                                                        echo "$sort_key|$gflops|$time|$total_compile_time|$opt|$march_desc|$mtune_desc|$extra_desc+PGO|medium" > /tmp/combo_results_$$/${combo_id} 2>/dev/null
-                                                    fi
-                                                    
-                                                    rm -f $exe_name ${exe_name}_gen *.gcda 2>/dev/null
-                                                fi
-                                            fi
-                                        else
-                                            # Standard compilation without PGO
-                                            # Time the compilation
-                                            compile_start=$(date +%s.%N)
-                                            gcc $flags -Wall -o $exe_name src/optimized_matrix.c -lm 2>/dev/null
-                                            compile_end=$(date +%s.%N)
-                                            compile_time=$(echo "scale=3; $compile_end - $compile_start" | bc -l)
-                                            
-                                            if [ $? -eq 0 ]; then
-                                                result=$(./$exe_name medium 2>/dev/null)
-                                                gflops=$(echo "$result" | grep "Performance:" | awk '{print $2}')
-                                                time=$(echo "$result" | grep "Time:" | awk '{print $2}')
-                                                
-                                                if [ ! -z "$gflops" ]; then
-                                                    sort_key=$(printf "%08.2f" $(echo "$gflops * 100" | bc -l) | tr '.' '_')
-                                                    echo "$sort_key|$gflops|$time|$compile_time|$opt|$march_desc|$mtune_desc|$extra_desc|medium" > /tmp/combo_results_$$/${combo_id} 2>/dev/null
-                                                fi
-                                                
-                                                rm -f $exe_name 2>/dev/null
-                                            fi
-                                        fi
-                                        
-                                        # Add delay before marking complete
-                                        sleep 0.5
-                                        echo "Complete" > "$STATUS_DIR/$combo_id"
-                                    ) &
-                            done
-                        done
-                    done
-                else
-                    # Original logic without extra flags
-                    # Build flags
-                    flags="-$opt"
-                    
-                    # Add march flag
-                    case $march in
-                        "native")
-                            flags="$flags -march=native"
-                            ;;
-                        "neoverse")
-                            flags="$flags -march=$MARCH_SPECIFIC"
-                            ;;
-                    esac
-                    
-                    # Add mtune flag
-                    case $mtune in
-                        "native")
-                            flags="$flags -mtune=native"
-                            ;;
-                        "neoverse")
-                            flags="$flags -mtune=$MTUNE_SPECIFIC"
-                            ;;
-                    esac
-                    
-                    march_desc="$march"
-                    mtune_desc="$mtune"
-                    
-                    # Wait for available job slot
-                    wait_for_slot
-                    
-                    # Run test in background
-                    (
-                        if [ $pgo -eq 1 ]; then
-                            combo_id="${opt}_${march}_${mtune}_${pgo}_medium"
-                        else
-                            combo_id="${opt}_${march}_${mtune}_medium"
-                        fi
-                        echo "Running" > "$STATUS_DIR/$combo_id"
-                        
-                        # Add small delay to see state changes
-                        sleep 0.5
-                        
-                        exe_name="temp/combo_${opt}_${march}_${mtune}_${pgo}_medium_$$_${RANDOM}"
-                        
-                        if [ $pgo -eq 1 ]; then
-                            # PGO compilation: generate -> run -> use
-                            # Step 1: Compile with -fprofile-generate
-                            compile1_start=$(date +%s.%N)
-                            gcc $flags -fprofile-generate -Wall -o ${exe_name}_gen src/optimized_matrix.c -lm 2>/dev/null
-                            compile1_end=$(date +%s.%N)
-                            compile1_time=$(echo "scale=3; $compile1_end - $compile1_start" | bc -l)
-                            
-                            if [ $? -eq 0 ]; then
-                                # Step 2: Run to generate profile data
-                                profile_start=$(date +%s.%N)
-                                ./${exe_name}_gen medium >/dev/null 2>&1
-                                profile_end=$(date +%s.%N)
-                                profile_time=$(echo "scale=3; $profile_end - $profile_start" | bc -l)
-                                
-                                # Step 3: Compile with -fprofile-use
-                                compile2_start=$(date +%s.%N)
-                                gcc $flags -fprofile-use -Wall -o $exe_name src/optimized_matrix.c -lm 2>/dev/null
-                                compile2_end=$(date +%s.%N)
-                                compile2_time=$(echo "scale=3; $compile2_end - $compile2_start" | bc -l)
-                                
-                                total_compile_time=$(echo "scale=3; $compile1_time + $profile_time + $compile2_time" | bc -l)
-                                
-                                if [ $? -eq 0 ]; then
-                                    result=$(./$exe_name medium 2>/dev/null)
-                                    gflops=$(echo "$result" | grep "Performance:" | awk '{print $2}')
-                                    time=$(echo "$result" | grep "Time:" | awk '{print $2}')
-                                    
-                                    if [ ! -z "$gflops" ]; then
-                                        sort_key=$(printf "%08.2f" $(echo "$gflops * 100" | bc -l) | tr '.' '_')
-                                        echo "$sort_key|$gflops|$time|$total_compile_time|$opt|$march_desc|$mtune_desc|PGO|medium" > /tmp/combo_results_$$/${combo_id} 2>/dev/null
-                                    fi
-                                    
-                                    rm -f $exe_name ${exe_name}_gen *.gcda 2>/dev/null
-                                fi
-                            fi
-                        else
-                            # Standard compilation without PGO
-                            # Time the compilation
-                            compile_start=$(date +%s.%N)
-                            gcc $flags -Wall -o $exe_name src/optimized_matrix.c -lm 2>/dev/null
-                            compile_end=$(date +%s.%N)
-                            compile_time=$(echo "scale=3; $compile_end - $compile_start" | bc -l)
-                            
-                            if [ $? -eq 0 ]; then
-                                result=$(./$exe_name medium 2>/dev/null)
-                                gflops=$(echo "$result" | grep "Performance:" | awk '{print $2}')
-                                time=$(echo "$result" | grep "Time:" | awk '{print $2}')
-                                
-                                if [ ! -z "$gflops" ]; then
-                                    sort_key=$(printf "%08.2f" $(echo "$gflops * 100" | bc -l) | tr '.' '_')
-                                    echo "$sort_key|$gflops|$time|$compile_time|$opt|$march_desc|$mtune_desc||medium" > /tmp/combo_results_$$/${combo_id} 2>/dev/null
-                                fi
-                                
-                                rm -f $exe_name 2>/dev/null
-                            fi
-                        fi
-                        
-                        # Add delay before marking complete
-                        sleep 0.5
-                        echo "Complete" > "$STATUS_DIR/$combo_id"
-                    ) &
-                    fi
-                done
-            done
-        done
-    done
-else
-    # Medium tests skipped, clear MONITOR_PID
-    MONITOR_PID=""
-fi
-
-# Wait for all jobs and monitor to complete
-wait
-# Kill any remaining monitor process
-if [ ! -z "$MONITOR_PID" ]; then
-    kill $MONITOR_PID 2>/dev/null
-    wait $MONITOR_PID 2>/dev/null
-fi
 sleep 1
 rm -rf "$STATUS_DIR"
 printf "\033[2J\033[H"
@@ -742,13 +515,13 @@ for target_size in "${sizes[@]}"; do
     echo "### ${target_size^} Matrix ($(case $target_size in micro) echo "64x64";; small) echo "512x512";; medium) echo "1024x1024";; esac))"
     echo
     if [ "$use_extra_flags" = true ]; then
-        printf "| %-5s | %-8s | %-8s | %-15s | %-4s | %-15s | %-15s | %-20s | %-3s |\n" "Rank" "GFLOPS" "GFLOP/s" "Time (seconds)" "Opt" "-march" "-mtune" "Extra Flags" "PGO"
-        printf "|       |          |          | %-6s | %-7s |      |                 |                  |                      |     |\n" "Run" "Compile"
-        printf "|-------|----------|----------|--------|---------|------|-----------------|------------------|----------------------|-----|\n"
+        printf "| %-5s | %-8s | %-8s | %-15s | %-4s | %-15s | %-15s | %-20s | %-3s | %-15s |\n" "Rank" "GFLOPS" "GFLOP/s" "Time (seconds)" "Opt" "-march" "-mtune" "Extra Flags" "PGO" "Individual Runs"
+        printf "|       |          |          | %-6s | %-7s |      |                 |                  |                      |     |                 |\n" "Run" "Compile"
+        printf "|-------|----------|----------|--------|---------|------|-----------------|------------------|----------------------|-----|-----------------|\n"
     else
-        printf "| %-5s | %-8s | %-8s | %-15s | %-4s | %-15s | %-15s | %-3s |\n" "Rank" "GFLOPS" "GFLOP/s" "Time (seconds)" "Opt" "-march" "-mtune" "PGO"
-        printf "|       |          |          | %-6s | %-7s |      |                 |                  |     |\n" "Run" "Compile"
-        printf "|-------|----------|----------|--------|---------|------|-----------------|------------------|-----|\n"
+        printf "| %-5s | %-8s | %-8s | %-15s | %-4s | %-15s | %-15s | %-3s | %-15s |\n" "Rank" "GFLOPS" "GFLOP/s" "Time (seconds)" "Opt" "-march" "-mtune" "PGO" "Individual Runs"
+        printf "|       |          |          | %-6s | %-7s |      |                 |                  |     |                 |\n" "Run" "Compile"
+        printf "|-------|----------|----------|--------|---------|------|-----------------|------------------|-----|-----------------|\n"
     fi
     
     rank=1
@@ -764,10 +537,35 @@ for target_size in "${sizes[@]}"; do
     worst_extra_for_size=""
     autodetect_gflops_for_size=""
     
+    # First, display baseline (-O0/None/None/F) as rank -1
     for result in "${sorted[@]}"; do
-        IFS='|' read -r sort_key gflops time compile_time opt march mtune extra_flags size <<< "$result"
+        IFS='|' read -r sort_key gflops time compile_time opt march mtune extra_flags size runs_detail <<< "$result"
+        
+        if [ "$size" = "$target_size" ] && [ "$opt" = "O0" ] && [ "$march" = "none" ] && [ "$mtune" = "none" ] && [ "$extra_flags" = "" ]; then
+            if [ -z "$time" ] || [ "$time" = "0" ]; then
+                gflop_per_s="∞"
+            else
+                gflop_per_s=$(echo "scale=2; $gflops / $time" | bc -l 2>/dev/null || echo "∞")
+            fi
+            
+            if [ "$use_extra_flags" = true ]; then
+                printf "| %-5s | %-8s | %-8s | %-6s | %-7s | %-4s | %-15s | %-15s | %-20s | %-3s | %-15s |\n" "-1" "$gflops" "$gflop_per_s" "$time" "$compile_time" "-$opt" "None" "None" "None" "F" "$runs_detail"
+            else
+                printf "| %-5s | %-8s | %-8s | %-6s | %-7s | %-4s | %-15s | %-15s | %-3s | %-15s |\n" "-1" "$gflops" "$gflop_per_s" "$time" "$compile_time" "-$opt" "None" "None" "F" "$runs_detail"
+            fi
+            break
+        fi
+    done
+    
+    for result in "${sorted[@]}"; do
+        IFS='|' read -r sort_key gflops time compile_time opt march mtune extra_flags size runs_detail <<< "$result"
         
         if [ "$size" = "$target_size" ]; then
+            # Skip baseline entry (already displayed as rank -1)
+            if [ "$opt" = "O0" ] && [ "$march" = "none" ] && [ "$mtune" = "none" ] && [ "$extra_flags" = "" ]; then
+                continue
+            fi
+            
             # Track best performance for this size
             if [ -z "$best_gflops_for_size" ]; then
                 best_gflops_for_size="$gflops"
@@ -794,10 +592,13 @@ for target_size in "${sizes[@]}"; do
             fi
             
             # Calculate GFLOP/s (GFLOPS per second, which is just GFLOPS/time)
-            if [ "$time" = "0.000" ] || [ "$time" = "0" ]; then
+            if [ "$time" = "0.000" ] || [ "$time" = "0" ] || [ -z "$time" ]; then
                 gflop_per_s="∞"
             else
                 gflop_per_s=$(echo "scale=2; $gflops / $time" | bc -l 2>/dev/null || echo "∞")
+                if [ -z "$gflop_per_s" ]; then
+                    gflop_per_s="∞"
+                fi
             fi
             
             # Convert march/mtune to display names
@@ -828,9 +629,9 @@ for target_size in "${sizes[@]}"; do
                 extra_display=${extra_display%,}  # Remove trailing comma
                 [ -z "$extra_display" ] && extra_display="None"
                 
-                printf "| %-5d | %-8s | %-8s | %-6s | %-7s | %-4s | %-15s | %-15s | %-20s | %-3s |\n" "$rank" "$gflops" "$gflop_per_s" "$time" "$compile_time" "-$opt" "$march_flag" "$mtune_flag" "$extra_display" "$pgo_display"
+                printf "| %-5d | %-8s | %-8s | %-6s | %-7s | %-4s | %-15s | %-15s | %-20s | %-3s | %-15s |\n" "$rank" "$gflops" "$gflop_per_s" "$time" "$compile_time" "-$opt" "$march_flag" "$mtune_flag" "$extra_display" "$pgo_display" "$runs_detail"
             else
-                printf "| %-5d | %-8s | %-8s | %-6s | %-7s | %-4s | %-15s | %-15s | %-3s |\n" "$rank" "$gflops" "$gflop_per_s" "$time" "$compile_time" "-$opt" "$march_flag" "$mtune_flag" "$pgo_display"
+                printf "| %-5d | %-8s | %-8s | %-6s | %-7s | %-4s | %-15s | %-15s | %-3s | %-15s |\n" "$rank" "$gflops" "$gflop_per_s" "$time" "$compile_time" "-$opt" "$march_flag" "$mtune_flag" "$pgo_display" "$runs_detail"
             fi
             ((rank++))
         fi
@@ -856,13 +657,13 @@ echo "=== Key Insights ==="
 
 # Get baseline performance from O0/native/native results in our test data
 if [ "$use_extra_flags" = true ]; then
-    baseline_micro=$(printf '%s\n' "${sorted[@]}" | grep "|O0|native|native||micro$" | head -1 | cut -d'|' -f2)
-    baseline_small=$(printf '%s\n' "${sorted[@]}" | grep "|O0|native|native||small$" | head -1 | cut -d'|' -f2)
-    baseline_medium=$(printf '%s\n' "${sorted[@]}" | grep "|O0|native|native||medium$" | head -1 | cut -d'|' -f2)
+    baseline_micro=$(printf '%s\n' "${sorted[@]}" | grep "|O0|native|native||micro|" | head -1 | cut -d'|' -f2)
+    baseline_small=$(printf '%s\n' "${sorted[@]}" | grep "|O0|native|native||small|" | head -1 | cut -d'|' -f2)
+    baseline_medium=$(printf '%s\n' "${sorted[@]}" | grep "|O0|native|native||medium|" | head -1 | cut -d'|' -f2)
 else
-    baseline_micro=$(printf '%s\n' "${sorted[@]}" | grep "|O0|native|native||micro$" | head -1 | cut -d'|' -f2)
-    baseline_small=$(printf '%s\n' "${sorted[@]}" | grep "|O0|native|native||small$" | head -1 | cut -d'|' -f2)
-    baseline_medium=$(printf '%s\n' "${sorted[@]}" | grep "|O0|native|native||medium$" | head -1 | cut -d'|' -f2)
+    baseline_micro=$(printf '%s\n' "${sorted[@]}" | grep "|O0|native|native||micro|" | head -1 | cut -d'|' -f2)
+    baseline_small=$(printf '%s\n' "${sorted[@]}" | grep "|O0|native|native||small|" | head -1 | cut -d'|' -f2)
+    baseline_medium=$(printf '%s\n' "${sorted[@]}" | grep "|O0|native|native||medium|" | head -1 | cut -d'|' -f2)
 fi
 
 # Function to convert arch names to readable format
@@ -873,29 +674,6 @@ get_arch_name() {
         "neoverse") echo "V2" ;;
         *) echo "$1" ;;
     esac
-}
-
-# Function to get default compile performance (O0 with no flags) compared to best
-get_default_performance() {
-    local size=$1
-    local best_gflops=$2
-    
-    # Find O0 with none/none performance
-    local default_gflops=$(printf '%s\n' "${sorted[@]}" | grep "|O0|none|none|$size$" | head -1 | cut -d'|' -f2)
-    
-    if [ ! -z "$default_gflops" ]; then
-        local change=$(echo "scale=1; ($default_gflops - $best_gflops) / $best_gflops * 100" | bc -l)
-        if (( $(echo "$change < 0" | bc -l) )); then
-            local change_abs=${change#-}
-            echo "${change_abs}% performance hit"
-        elif (( $(echo "$change > 1" | bc -l) )); then
-            echo "${change}% performance gain"
-        else
-            echo "no significant change"
-        fi
-    else
-        echo "no data available"
-    fi
 }
 
 for size in "${sizes[@]}"; do
