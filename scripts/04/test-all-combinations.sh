@@ -259,7 +259,7 @@ mkdir -p results/comprehensive
 mkdir -p temp
 mkdir -p /tmp/combo_results_$$
 
-# Calculate max parallel jobs (ncpu - 2)
+# Calculate max parallel jobs (ncpu - 2, minimum 1)
 MAX_JOBS=$(($(nproc) - 2))
 if [ $MAX_JOBS -lt 1 ]; then
     MAX_JOBS=1
