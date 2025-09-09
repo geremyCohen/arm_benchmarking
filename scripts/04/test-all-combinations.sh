@@ -13,6 +13,7 @@ if [[ "$1" == "-h" || "$1" == "--help" ]]; then
     echo "                   Adds -flto, -fomit-frame-pointer, -funroll-loops"
     echo "  --pgo            Use profile-guided optimization (default: disabled)"
     echo "                   Adds -fprofile-generate and -fprofile-use"
+    echo "  --baseline-only  Run only baseline configuration (-O0, no march/mtune, PGO=F)"
     echo "  -h, --help       Show this help message"
     echo
     echo "Examples:"
@@ -20,6 +21,7 @@ if [[ "$1" == "-h" || "$1" == "--help" ]]; then
     echo "  $0 --runs 3 --sizes 1,2,3 --extra-flags --pgo"
     echo "  $0 --runs 5 --sizes 1                # 5 runs, micro only"
     echo "  $0 --sizes 2,3 --extra-flags         # Small+medium with extra flags"
+    echo "  $0 --baseline-only --runs 3           # Baseline only, 3 runs"
     exit 0
 fi
 
@@ -35,6 +37,7 @@ num_runs=1
 matrix_sizes_arg="1,2"
 use_extra_flags=false
 use_pgo=false
+baseline_only=false
 
 # Parse named arguments
 while [[ $# -gt 0 ]]; do
@@ -53,6 +56,10 @@ while [[ $# -gt 0 ]]; do
             ;;
         --pgo)
             use_pgo=true
+            shift
+            ;;
+        --baseline-only)
+            baseline_only=true
             shift
             ;;
         *)
@@ -93,6 +100,13 @@ if [ ${#sizes[@]} -eq 0 ]; then
 fi
 
 echo "Testing sizes: ${sizes[*]}"
+
+# Display baseline-only mode message
+if [ "$baseline_only" = true ]; then
+    echo "Running baseline-only mode (-O0, no march/mtune, PGO=F)"
+    use_extra_flags=false
+    use_pgo=false
+fi
 
 # Set extra optimization flags
 if [ "$use_extra_flags" = true ]; then
@@ -175,9 +189,15 @@ STATUS_DIR="/tmp/benchmark_status_$$"
 mkdir -p "$STATUS_DIR"
 
 # Define test parameters
-opt_levels=("O0" "O1" "O2" "O3")
-march_options=("none" "native" "neoverse")
-mtune_options=("none" "native" "neoverse")
+if [ "$baseline_only" = true ]; then
+    opt_levels=("O0")
+    march_options=("none")
+    mtune_options=("none")
+else
+    opt_levels=("O0" "O1" "O2" "O3")
+    march_options=("none" "native" "neoverse")
+    mtune_options=("none" "native" "neoverse")
+fi
 
 # Initialize status files for all combinations
 for size in "${sizes[@]}"; do
