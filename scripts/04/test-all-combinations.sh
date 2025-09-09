@@ -1,6 +1,31 @@
 #!/bin/bash
 # test-all-combinations.sh - Test all combinations with consolidated logic for all matrix sizes
-# Uses O0/None/None results as baseline for performance comparisons
+# Usage: ./test-all-combinations.sh [numRuns] [matrixSizes] [xOptFlags] [fprofile]
+# numRuns: 1-7 (default: 1)
+# matrixSizes: 1,2,3 combinations (1=micro, 2=small, 3=medium, default: 1,2)
+# xOptFlags: y/n (default: n)
+# fprofile: y/n (default: n)
+
+# Check for help flags
+if [[ "$1" == "-h" || "$1" == "--help" ]]; then
+    echo "Usage: $0 [numRuns] [matrixSizes] [xOptFlags] [fprofile]"
+    echo
+    echo "Parameters:"
+    echo "  numRuns      Number of runs per combination for accuracy (1-7, default: 1)"
+    echo "  matrixSizes  Matrix sizes to test (1,2,3 combinations, default: 1,2)"
+    echo "               1=micro (64x64), 2=small (512x512), 3=medium (1024x1024)"
+    echo "  xOptFlags    Include extra optimization flags (y/n, default: n)"
+    echo "               Adds -flto, -fomit-frame-pointer, -funroll-loops"
+    echo "  fprofile     Use profile-guided optimization (y/n, default: n)"
+    echo "               Adds -fprofile-generate and -fprofile-use"
+    echo
+    echo "Examples:"
+    echo "  $0                    # Default: 1 run, micro+small, no extra flags"
+    echo "  $0 3 1,2,3 y y        # 3 runs, all sizes, with extra flags and PGO"
+    echo "  $0 5 1 n n            # 5 runs, micro only, standard flags"
+    echo "  $0 2 2,3 y n          # 2 runs, small+medium, with extra flags"
+    exit 0
+fi
 
 echo "=== Comprehensive Compiler Optimization Analysis ==="
 echo
@@ -9,38 +34,45 @@ echo
 rm -rf results/comprehensive/*
 rm -rf temp/*
 
-# Prompt for number of runs per combination
-echo -n "Number of runs per combination for accuracy (1-10) [1]: "
-read -t 3 runs_choice
-echo
+# Parse command line arguments
+num_runs=${1:-1}
+matrix_sizes_arg=${2:-"1,2"}
+x_opt_flags=${3:-"n"}
+fprofile=${4:-"n"}
 
-if [[ "$runs_choice" =~ ^[2-9]$|^10$ ]]; then
-    num_runs=$runs_choice
+# Validate numRuns
+if [[ ! "$num_runs" =~ ^[1-7]$ ]]; then
+    echo "Error: numRuns must be 1-7, got: $num_runs"
+    exit 1
+fi
+
+if [ "$num_runs" -gt 1 ]; then
     echo "Running each combination $num_runs times (using trimmed mean to remove outliers)"
 else
-    num_runs=1
     echo "Running each combination once (single run)"
 fi
 
-# Prompt for matrix sizes
-echo -n "Test sizes: micro+small (default) or all including medium? [micro+small/y]: "
-read size_choice
-echo
+# Parse matrix sizes
+sizes=()
+IFS=',' read -ra SIZE_ARRAY <<< "$matrix_sizes_arg"
+for size_num in "${SIZE_ARRAY[@]}"; do
+    case $size_num in
+        1) sizes+=("micro") ;;
+        2) sizes+=("small") ;;
+        3) sizes+=("medium") ;;
+        *) echo "Error: Invalid matrix size: $size_num (valid: 1,2,3)"; exit 1 ;;
+    esac
+done
 
-if [[ "$size_choice" == "y" || "$size_choice" == "Y" ]]; then
-    sizes=("micro" "small" "medium")
-    echo "Testing all sizes: micro, small, medium"
-else
-    sizes=("micro" "small")
-    echo "Testing default sizes: micro, small (medium skipped for speed)"
+if [ ${#sizes[@]} -eq 0 ]; then
+    echo "Error: No valid matrix sizes specified"
+    exit 1
 fi
 
-# Prompt for additional optimization flags
-echo -n "Include additional optimization flags (-flto, -fomit-frame-pointer, -funroll-loops)? [y/N]: "
-read extra_flags_choice
-echo
+echo "Testing sizes: ${sizes[*]}"
 
-if [ "$extra_flags_choice" = "y" ] || [ "$extra_flags_choice" = "Y" ]; then
+# Parse extra optimization flags
+if [[ "$x_opt_flags" == "y" || "$x_opt_flags" == "Y" ]]; then
     use_extra_flags=true
     extra_flags=("flto" "fomit-frame-pointer" "funroll-loops")
     echo "Including additional optimization flags (8x more combinations: 2^3 flag combinations)"
@@ -50,12 +82,8 @@ else
     echo "Using standard optimization flags only"
 fi
 
-# Prompt for profile-guided optimization
-echo -n "Use -fprofile-generate and -fprofile-use? [y/N]: "
-read pgo_choice
-echo
-
-if [ "$pgo_choice" = "y" ] || [ "$pgo_choice" = "Y" ]; then
+# Parse profile-guided optimization
+if [[ "$fprofile" == "y" || "$fprofile" == "Y" ]]; then
     use_pgo=true
     echo "Including profile-guided optimization (2x more combinations: with/without PGO)"
 else
