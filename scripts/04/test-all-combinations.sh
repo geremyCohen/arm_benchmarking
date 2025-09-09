@@ -257,11 +257,7 @@ MONITOR_PID=$!
 # Create results and temp directories
 mkdir -p results/comprehensive
 mkdir -p temp
-RESULTS_DIR="/tmp/benchmark_results_$$"
-mkdir -p "$RESULTS_DIR"
-
-# Results array for in-memory storage
-declare -a all_results
+mkdir -p /tmp/combo_results_$$
 
 # Calculate max parallel jobs (ncpu - 2, minimum 1)
 MAX_JOBS=$(($(nproc) - 2))
@@ -279,6 +275,8 @@ wait_for_slot() {
     done
     sleep 0.05
 }
+
+declare -a all_results
 
 # UNIFIED EXECUTION LOGIC FOR ALL MATRIX SIZES
 for size in "${sizes[@]}"; do
@@ -398,16 +396,17 @@ for size in "${sizes[@]}"; do
                                             avg_time=$(calculate_trimmed_mean "${time_runs[@]}")
                                             avg_compile_time=$(calculate_trimmed_mean "${compile_time_runs[@]}")
                                             
-                                            sort_key=$(printf "%08.2f" $(echo "$avg_gflops * 100" | bc -l) | tr '.' '_')
+                                            sort_key=$(printf "%010.4f" "$avg_gflops")
                                             runs_detail=$(printf "%s," "${gflops_runs[@]}")
                                             runs_detail=${runs_detail%,}
                                             
+                                            # Use unique filename with timestamp to prevent race conditions
+                                            result_file="/tmp/combo_results_$$/$(date +%s%N)_${combo_id}"
                                             if [ $pgo -eq 1 ]; then
-                                                result_line="$sort_key|$avg_gflops|$avg_time|$avg_compile_time|$opt|$march_desc|$mtune_desc|$extra_desc+PGO|$size|[$runs_detail]"
+                                                echo "$sort_key|$avg_gflops|$avg_time|$avg_compile_time|$opt|$march_desc|$mtune_desc|$extra_desc+PGO|$size|[$runs_detail]" > "$result_file"
                                             else
-                                                result_line="$sort_key|$avg_gflops|$avg_time|$avg_compile_time|$opt|$march_desc|$mtune_desc|$extra_desc|$size|[$runs_detail]"
+                                                echo "$sort_key|$avg_gflops|$avg_time|$avg_compile_time|$opt|$march_desc|$mtune_desc|$extra_desc|$size|[$runs_detail]" > "$result_file"
                                             fi
-                                            echo "$result_line" > "$RESULTS_DIR/${combo_id}"
                                         fi
                                         
                                         echo "Complete" > "$STATUS_DIR/$combo_id"
@@ -515,16 +514,17 @@ for size in "${sizes[@]}"; do
                                 avg_time=$(calculate_trimmed_mean "${time_runs[@]}")
                                 avg_compile_time=$(calculate_trimmed_mean "${compile_time_runs[@]}")
                                 
-                                sort_key=$(printf "%08.2f" $(echo "$avg_gflops * 100" | bc -l) | tr '.' '_')
+                                sort_key=$(printf "%010.4f" "$avg_gflops")
                                 runs_detail=$(printf "%s," "${gflops_runs[@]}")
                                 runs_detail=${runs_detail%,}
                                 
+                                # Use unique filename with timestamp to prevent race conditions
+                                result_file="/tmp/combo_results_$$/$(date +%s%N)_${combo_id}"
                                 if [ $pgo -eq 1 ]; then
-                                    result_line="$sort_key|$avg_gflops|$avg_time|$avg_compile_time|$opt|$march_desc|$mtune_desc|PGO|$size|[$runs_detail]"
+                                    echo "$sort_key|$avg_gflops|$avg_time|$avg_compile_time|$opt|$march_desc|$mtune_desc|PGO|$size|[$runs_detail]" > "$result_file"
                                 else
-                                    result_line="$sort_key|$avg_gflops|$avg_time|$avg_compile_time|$opt|$march_desc|$mtune_desc||$size|[$runs_detail]"
+                                    echo "$sort_key|$avg_gflops|$avg_time|$avg_compile_time|$opt|$march_desc|$mtune_desc||$size|[$runs_detail]" > "$result_file"
                                 fi
-                                echo "$result_line" > "$RESULTS_DIR/${combo_id}"
                             fi
                             
                             echo "Complete" > "$STATUS_DIR/$combo_id"
@@ -544,15 +544,16 @@ sleep 1
 rm -rf "$STATUS_DIR"
 printf "\033[2J\033[H"
 
-# Collect all results into memory at once (atomic read)
-for result_file in "$RESULTS_DIR"/*; do
+# Collect results
+for result_file in /tmp/combo_results_$$/*; do
     if [ -f "$result_file" ]; then
-        all_results+=("$(cat "$result_file")")
+        result_line=$(cat "$result_file")
+        all_results+=("$result_line")
     fi
 done
 
-# Cleanup temp files
-rm -rf "$RESULTS_DIR"
+# Cleanup
+rm -rf /tmp/combo_results_$$
 
 # Sort results by performance (descending) and display grouped by matrix size
 echo "=== Performance Results (Grouped by Matrix Size) ==="
@@ -565,13 +566,13 @@ for target_size in "${sizes[@]}"; do
     echo "### ${target_size^} Matrix ($(case $target_size in micro) echo "64x64";; small) echo "512x512";; medium) echo "1024x1024";; esac))"
     echo
     if [ "$use_extra_flags" = true ]; then
-        printf "| %-5s | %-8s | %-15s | %-4s | %-15s | %-15s | %-20s | %-3s | %-15s |\n" "Rank" "GFLOPS" "Time (seconds)" "Opt" "-march" "-mtune" "Extra Flags" "PGO" "Individual Runs"
-        printf "|       |          | %-6s | %-7s |      |                 |                  |                      |     |                 |\n" "Run" "Compile"
-        printf "|-------|----------|--------|---------|------|-----------------|------------------|----------------------|-----|-----------------|\n"
+        printf "| %-5s | %-8s | %-8s | %-15s | %-4s | %-15s | %-15s | %-20s | %-3s | %-15s |\n" "Rank" "GFLOPS" "GFLOP/s" "Time (seconds)" "Opt" "-march" "-mtune" "Extra Flags" "PGO" "Individual Runs"
+        printf "|       |          |          | %-6s | %-7s |      |                 |                  |                      |     |                 |\n" "Run" "Compile"
+        printf "|-------|----------|----------|--------|---------|------|-----------------|------------------|----------------------|-----|-----------------|\n"
     else
-        printf "| %-5s | %-8s | %-15s | %-4s | %-15s | %-15s | %-3s | %-15s |\n" "Rank" "GFLOPS" "Time (seconds)" "Opt" "-march" "-mtune" "PGO" "Individual Runs"
-        printf "|       |          | %-6s | %-7s |      |                 |                  |     |                 |\n" "Run" "Compile"
-        printf "|-------|----------|--------|---------|------|-----------------|------------------|-----|-----------------|\n"
+        printf "| %-5s | %-8s | %-8s | %-15s | %-4s | %-15s | %-15s | %-3s | %-15s |\n" "Rank" "GFLOPS" "GFLOP/s" "Time (seconds)" "Opt" "-march" "-mtune" "PGO" "Individual Runs"
+        printf "|       |          |          | %-6s | %-7s |      |                 |                  |     |                 |\n" "Run" "Compile"
+        printf "|-------|----------|----------|--------|---------|------|-----------------|------------------|-----|-----------------|\n"
     fi
     
     rank=1
@@ -592,10 +593,16 @@ for target_size in "${sizes[@]}"; do
         IFS='|' read -r sort_key gflops time compile_time opt march mtune extra_flags size runs_detail <<< "$result"
         
         if [ "$size" = "$target_size" ] && [ "$opt" = "O0" ] && [ "$march" = "none" ] && [ "$mtune" = "none" ] && [ "$extra_flags" = "" ]; then
-            if [ "$use_extra_flags" = true ]; then
-                printf "| %-5s | %-8s | %-6s | %-7s | %-4s | %-15s | %-15s | %-20s | %-3s | %-15s |\n" "-1" "$gflops" "$time" "$compile_time" "-$opt" "None" "None" "None" "F" "$runs_detail"
+            if [ -z "$time" ] || [ "$time" = "0" ]; then
+                gflop_per_s="∞"
             else
-                printf "| %-5s | %-8s | %-6s | %-7s | %-4s | %-15s | %-15s | %-3s | %-15s |\n" "-1" "$gflops" "$time" "$compile_time" "-$opt" "None" "None" "F" "$runs_detail"
+                gflop_per_s=$(echo "scale=2; $gflops / $time" | bc -l 2>/dev/null || echo "∞")
+            fi
+            
+            if [ "$use_extra_flags" = true ]; then
+                printf "| %-5s | %-8s | %-8s | %-6s | %-7s | %-4s | %-15s | %-15s | %-20s | %-3s | %-15s |\n" "-1" "$gflops" "$gflop_per_s" "$time" "$compile_time" "-$opt" "None" "None" "None" "F" "$runs_detail"
+            else
+                printf "| %-5s | %-8s | %-8s | %-6s | %-7s | %-4s | %-15s | %-15s | %-3s | %-15s |\n" "-1" "$gflops" "$gflop_per_s" "$time" "$compile_time" "-$opt" "None" "None" "F" "$runs_detail"
             fi
             break
         fi
@@ -635,6 +642,16 @@ for target_size in "${sizes[@]}"; do
                 fi
             fi
             
+            # Calculate GFLOP/s (GFLOPS per second, which is just GFLOPS/time)
+            if [ "$time" = "0.000" ] || [ "$time" = "0" ] || [ -z "$time" ]; then
+                gflop_per_s="∞"
+            else
+                gflop_per_s=$(echo "scale=2; $gflops / $time" | bc -l 2>/dev/null || echo "∞")
+                if [ -z "$gflop_per_s" ]; then
+                    gflop_per_s="∞"
+                fi
+            fi
+            
             # Convert march/mtune to display names
             case $march in
                 "none") march_flag="None" ;;
@@ -663,9 +680,9 @@ for target_size in "${sizes[@]}"; do
                 extra_display=${extra_display%,}  # Remove trailing comma
                 [ -z "$extra_display" ] && extra_display="None"
                 
-                printf "| %-5d | %-8s | %-6s | %-7s | %-4s | %-15s | %-15s | %-20s | %-3s | %-15s |\n" "$rank" "$gflops" "$time" "$compile_time" "-$opt" "$march_flag" "$mtune_flag" "$extra_display" "$pgo_display" "$runs_detail"
+                printf "| %-5d | %-8s | %-8s | %-6s | %-7s | %-4s | %-15s | %-15s | %-20s | %-3s | %-15s |\n" "$rank" "$gflops" "$gflop_per_s" "$time" "$compile_time" "-$opt" "$march_flag" "$mtune_flag" "$extra_display" "$pgo_display" "$runs_detail"
             else
-                printf "| %-5d | %-8s | %-6s | %-7s | %-4s | %-15s | %-15s | %-3s | %-15s |\n" "$rank" "$gflops" "$time" "$compile_time" "-$opt" "$march_flag" "$mtune_flag" "$pgo_display" "$runs_detail"
+                printf "| %-5d | %-8s | %-8s | %-6s | %-7s | %-4s | %-15s | %-15s | %-3s | %-15s |\n" "$rank" "$gflops" "$gflop_per_s" "$time" "$compile_time" "-$opt" "$march_flag" "$mtune_flag" "$pgo_display" "$runs_detail"
             fi
             ((rank++))
         fi
