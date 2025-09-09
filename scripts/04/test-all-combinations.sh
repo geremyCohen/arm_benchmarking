@@ -257,7 +257,11 @@ MONITOR_PID=$!
 # Create results and temp directories
 mkdir -p results/comprehensive
 mkdir -p temp
-mkdir -p /tmp/combo_results_$$
+RESULTS_DIR="/tmp/benchmark_results_$$"
+mkdir -p "$RESULTS_DIR"
+
+# Results array for in-memory storage
+declare -a all_results
 
 # Calculate max parallel jobs (ncpu - 2, minimum 1)
 MAX_JOBS=$(($(nproc) - 2))
@@ -275,8 +279,6 @@ wait_for_slot() {
     done
     sleep 0.05
 }
-
-declare -a all_results
 
 # UNIFIED EXECUTION LOGIC FOR ALL MATRIX SIZES
 for size in "${sizes[@]}"; do
@@ -401,10 +403,11 @@ for size in "${sizes[@]}"; do
                                             runs_detail=${runs_detail%,}
                                             
                                             if [ $pgo -eq 1 ]; then
-                                                echo "$sort_key|$avg_gflops|$avg_time|$avg_compile_time|$opt|$march_desc|$mtune_desc|$extra_desc+PGO|$size|[$runs_detail]" > /tmp/combo_results_$$/${combo_id} 2>/dev/null
+                                                result_line="$sort_key|$avg_gflops|$avg_time|$avg_compile_time|$opt|$march_desc|$mtune_desc|$extra_desc+PGO|$size|[$runs_detail]"
                                             else
-                                                echo "$sort_key|$avg_gflops|$avg_time|$avg_compile_time|$opt|$march_desc|$mtune_desc|$extra_desc|$size|[$runs_detail]" > /tmp/combo_results_$$/${combo_id} 2>/dev/null
+                                                result_line="$sort_key|$avg_gflops|$avg_time|$avg_compile_time|$opt|$march_desc|$mtune_desc|$extra_desc|$size|[$runs_detail]"
                                             fi
+                                            echo "$result_line" > "$RESULTS_DIR/${combo_id}"
                                         fi
                                         
                                         echo "Complete" > "$STATUS_DIR/$combo_id"
@@ -517,10 +520,11 @@ for size in "${sizes[@]}"; do
                                 runs_detail=${runs_detail%,}
                                 
                                 if [ $pgo -eq 1 ]; then
-                                    echo "$sort_key|$avg_gflops|$avg_time|$avg_compile_time|$opt|$march_desc|$mtune_desc|PGO|$size|[$runs_detail]" > /tmp/combo_results_$$/${combo_id} 2>/dev/null
+                                    result_line="$sort_key|$avg_gflops|$avg_time|$avg_compile_time|$opt|$march_desc|$mtune_desc|PGO|$size|[$runs_detail]"
                                 else
-                                    echo "$sort_key|$avg_gflops|$avg_time|$avg_compile_time|$opt|$march_desc|$mtune_desc||$size|[$runs_detail]" > /tmp/combo_results_$$/${combo_id} 2>/dev/null
+                                    result_line="$sort_key|$avg_gflops|$avg_time|$avg_compile_time|$opt|$march_desc|$mtune_desc||$size|[$runs_detail]"
                                 fi
+                                echo "$result_line" > "$RESULTS_DIR/${combo_id}"
                             fi
                             
                             echo "Complete" > "$STATUS_DIR/$combo_id"
@@ -540,16 +544,15 @@ sleep 1
 rm -rf "$STATUS_DIR"
 printf "\033[2J\033[H"
 
-# Collect results
-for result_file in /tmp/combo_results_$$/*; do
+# Collect all results into memory at once (atomic read)
+for result_file in "$RESULTS_DIR"/*; do
     if [ -f "$result_file" ]; then
-        result_line=$(cat "$result_file")
-        all_results+=("$result_line")
+        all_results+=("$(cat "$result_file")")
     fi
 done
 
-# Cleanup
-rm -rf /tmp/combo_results_$$
+# Cleanup temp files
+rm -rf "$RESULTS_DIR"
 
 # Sort results by performance (descending) and display grouped by matrix size
 echo "=== Performance Results (Grouped by Matrix Size) ==="
