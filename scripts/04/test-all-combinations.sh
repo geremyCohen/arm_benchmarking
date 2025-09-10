@@ -175,6 +175,56 @@ if [ "$verbose" = true ]; then
 else
     echo "Verbose: Disabled"
 fi
+
+# Detect Neoverse processor type
+NEOVERSE_TYPE=$(lscpu | grep "Model name" | awk '{print $3}')
+case $NEOVERSE_TYPE in
+    "Neoverse-N1")
+        MARCH_SPECIFIC="armv8.2-a+fp16+rcpc+dotprod+crypto"
+        MTUNE_SPECIFIC="neoverse-n1"
+        ;;
+    "Neoverse-N2")
+        MARCH_SPECIFIC="armv9-a+sve2+bf16+i8mm"
+        MTUNE_SPECIFIC="neoverse-n2"
+        ;;
+    "Neoverse-V1")
+        MARCH_SPECIFIC="armv8.4-a+sve+bf16+i8mm"
+        MTUNE_SPECIFIC="neoverse-v1"
+        ;;
+    "Neoverse-V2")
+        MARCH_SPECIFIC="armv9-a+sve2+bf16+i8mm"
+        MTUNE_SPECIFIC="neoverse-v2"
+        ;;
+    *)
+        MARCH_SPECIFIC="native"
+        MTUNE_SPECIFIC="native"
+        ;;
+esac
+
+echo "Detected: $NEOVERSE_TYPE"
+
+# Detect what native would resolve to
+NATIVE_MTUNE=$(gcc -march=native -mtune=native -Q --help=target 2>/dev/null | grep -E "^\s*-mtune=" | awk -F= '{print $2}' | tr -d ' ')
+if [ -z "$NATIVE_MTUNE" ]; then
+    # Try alternative method
+    NATIVE_MTUNE=$(echo | gcc -march=native -mtune=native -E -v - 2>&1 | grep -o "mtune=[^ ]*" | cut -d= -f2 | head -1)
+fi
+if [ -z "$NATIVE_MTUNE" ]; then
+    NATIVE_MTUNE="detection_failed"
+fi
+
+NATIVE_MARCH=$(gcc -march=native -Q --help=target 2>/dev/null | grep -E "^\s*-march=" | awk -F= '{print $2}' | tr -d ' \t')
+if [ -z "$NATIVE_MARCH" ]; then
+    # Try mcpu instead as it shows the actual detected processor
+    NATIVE_MARCH=$(gcc -march=native -Q --help=target 2>/dev/null | grep -E "^\s*-mcpu=" | awk -F= '{print $2}' | tr -d ' \t')
+fi
+if [ -z "$NATIVE_MARCH" ]; then
+    NATIVE_MARCH="detection_failed"
+fi
+
+echo "-march HW detected: $NATIVE_MARCH"
+echo "-march predefined: $MARCH_SPECIFIC"
+echo "Testing all combinations of optimization levels, architecture flags, and matrix sizes..."
 echo
 
 # Function to calculate trimmed mean (removes outliers)
@@ -211,34 +261,6 @@ calculate_trimmed_mean() {
         echo "scale=3; $sum / $used_count" | bc -l
     fi
 }
-
-# Detect Neoverse processor type
-NEOVERSE_TYPE=$(lscpu | grep "Model name" | awk '{print $3}')
-case $NEOVERSE_TYPE in
-    "Neoverse-N1")
-        MARCH_SPECIFIC="armv8.2-a+fp16+rcpc+dotprod+crypto"
-        MTUNE_SPECIFIC="neoverse-n1"
-        ;;
-    "Neoverse-N2")
-        MARCH_SPECIFIC="armv9-a+sve2+bf16+i8mm"
-        MTUNE_SPECIFIC="neoverse-n2"
-        ;;
-    "Neoverse-V1")
-        MARCH_SPECIFIC="armv8.4-a+sve+bf16+i8mm"
-        MTUNE_SPECIFIC="neoverse-v1"
-        ;;
-    "Neoverse-V2")
-        MARCH_SPECIFIC="armv9-a+sve2+bf16+i8mm"
-        MTUNE_SPECIFIC="neoverse-v2"
-        ;;
-    *)
-        MARCH_SPECIFIC="native"
-        MTUNE_SPECIFIC="native"
-        ;;
-esac
-
-echo "Detected: $NEOVERSE_TYPE"
-echo "Testing all combinations of optimization levels, architecture flags, and matrix sizes..."
 echo
 
 # Create temp directories
