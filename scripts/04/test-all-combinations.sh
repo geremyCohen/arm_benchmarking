@@ -15,6 +15,7 @@ if [[ "$1" == "-h" || "$1" == "--help" ]]; then
     echo "                   Adds -flto, -fomit-frame-pointer, -funroll-loops"
     echo "  --pgo            Use profile-guided optimization (default: disabled)"
     echo "                   Adds -fprofile-generate and -fprofile-use"
+    echo "  --verbose        Show compiler commands and output (default: disabled)"
     echo "  --baseline-only  Run only baseline configuration (-O0, no march/mtune, PGO=F)"
     echo "  -h, --help       Show this help message"
     echo
@@ -42,6 +43,7 @@ use_extra_flags=false
 use_pgo=false
 baseline_only=false
 use_arch_flags=false
+verbose=false
 
 # Parse named arguments
 while [[ $# -gt 0 ]]; do
@@ -68,6 +70,10 @@ while [[ $# -gt 0 ]]; do
             ;;
         --pgo)
             use_pgo=true
+            shift
+            ;;
+        --verbose)
+            verbose=true
             shift
             ;;
         --baseline-only)
@@ -161,6 +167,11 @@ if [ "$use_pgo" = true ]; then
     echo "PGO: Enabled (2x more combinations: with/without PGO)"
 else
     echo "PGO: Disabled"
+fi
+if [ "$verbose" = true ]; then
+    echo "Verbose: Enabled (showing compiler commands and output)"
+else
+    echo "Verbose: Disabled"
 fi
 echo
 
@@ -407,7 +418,12 @@ for size in "${sizes[@]}"; do
                                             if [ $pgo -eq 1 ]; then
                                                 # PGO compilation
                                                 compile1_start=$(date +%s.%N)
-                                                gcc $flags -fprofile-generate -Wall -o ${exe_name}_gen src/optimized_matrix.c -lm 2>/dev/null
+                                                if [ "$verbose" = true ]; then
+                                                    echo "gcc $flags -fprofile-generate -Wall -o ${exe_name}_gen src/optimized_matrix.c -lm"
+                                                    gcc $flags -fprofile-generate -Wall -o ${exe_name}_gen src/optimized_matrix.c -lm
+                                                else
+                                                    gcc $flags -fprofile-generate -Wall -o ${exe_name}_gen src/optimized_matrix.c -lm 2>/dev/null
+                                                fi
                                                 compile1_end=$(date +%s.%N)
                                                 compile1_time=$(echo "scale=3; $compile1_end - $compile1_start" | bc -l)
                                                 
@@ -418,7 +434,12 @@ for size in "${sizes[@]}"; do
                                                     profile_time=$(echo "scale=3; $profile_end - $profile_start" | bc -l)
                                                     
                                                     compile2_start=$(date +%s.%N)
-                                                    gcc $flags -fprofile-use -Wall -o $exe_name src/optimized_matrix.c -lm 2>/dev/null
+                                                    if [ "$verbose" = true ]; then
+                                                        echo "gcc $flags -fprofile-use -Wall -o $exe_name src/optimized_matrix.c -lm"
+                                                        gcc $flags -fprofile-use -Wall -o $exe_name src/optimized_matrix.c -lm
+                                                    else
+                                                        gcc $flags -fprofile-use -Wall -o $exe_name src/optimized_matrix.c -lm 2>/dev/null
+                                                    fi
                                                     compile2_end=$(date +%s.%N)
                                                     compile2_time=$(echo "scale=3; $compile2_end - $compile2_start" | bc -l)
                                                     
@@ -440,7 +461,12 @@ for size in "${sizes[@]}"; do
                                             else
                                                 # Standard compilation
                                                 compile_start=$(date +%s.%N)
-                                                gcc $flags -Wall -o $exe_name src/optimized_matrix.c -lm 2>/dev/null
+                                                if [ "$verbose" = true ]; then
+                                                    echo "gcc $flags -Wall -o $exe_name src/optimized_matrix.c -lm"
+                                                    gcc $flags -Wall -o $exe_name src/optimized_matrix.c -lm
+                                                else
+                                                    gcc $flags -Wall -o $exe_name src/optimized_matrix.c -lm 2>/dev/null
+                                                fi
                                                 compile_end=$(date +%s.%N)
                                                 run_compile_time=$(echo "scale=3; $compile_end - $compile_start" | bc -l)
                                                 
@@ -525,7 +551,12 @@ for size in "${sizes[@]}"; do
                                 if [ $pgo -eq 1 ]; then
                                     # PGO compilation
                                     compile1_start=$(date +%s.%N)
-                                    gcc $flags -fprofile-generate -Wall -o ${exe_name}_gen src/optimized_matrix.c -lm 2>/dev/null
+                                    if [ "$verbose" = true ]; then
+                                        echo "gcc $flags -fprofile-generate -Wall -o ${exe_name}_gen src/optimized_matrix.c -lm"
+                                        gcc $flags -fprofile-generate -Wall -o ${exe_name}_gen src/optimized_matrix.c -lm
+                                    else
+                                        gcc $flags -fprofile-generate -Wall -o ${exe_name}_gen src/optimized_matrix.c -lm 2>/dev/null
+                                    fi
                                     compile1_end=$(date +%s.%N)
                                     compile1_time=$(echo "scale=3; $compile1_end - $compile1_start" | bc -l)
                                     
@@ -536,7 +567,12 @@ for size in "${sizes[@]}"; do
                                         profile_time=$(echo "scale=3; $profile_end - $profile_start" | bc -l)
                                         
                                         compile2_start=$(date +%s.%N)
-                                        gcc $flags -fprofile-use -Wall -o $exe_name src/optimized_matrix.c -lm 2>/dev/null
+                                        if [ "$verbose" = true ]; then
+                                            echo "gcc $flags -fprofile-use -Wall -o $exe_name src/optimized_matrix.c -lm"
+                                            gcc $flags -fprofile-use -Wall -o $exe_name src/optimized_matrix.c -lm
+                                        else
+                                            gcc $flags -fprofile-use -Wall -o $exe_name src/optimized_matrix.c -lm 2>/dev/null
+                                        fi
                                         compile2_end=$(date +%s.%N)
                                         compile2_time=$(echo "scale=3; $compile2_end - $compile2_start" | bc -l)
                                         
@@ -558,7 +594,12 @@ for size in "${sizes[@]}"; do
                                 else
                                     # Standard compilation
                                     compile_start=$(date +%s.%N)
-                                    gcc $flags -Wall -o $exe_name src/optimized_matrix.c -lm 2>/dev/null
+                                    if [ "$verbose" = true ]; then
+                                        echo "gcc $flags -Wall -o $exe_name src/optimized_matrix.c -lm"
+                                        gcc $flags -Wall -o $exe_name src/optimized_matrix.c -lm
+                                    else
+                                        gcc $flags -Wall -o $exe_name src/optimized_matrix.c -lm 2>/dev/null
+                                    fi
                                     compile_end=$(date +%s.%N)
                                     run_compile_time=$(echo "scale=3; $compile_end - $compile_start" | bc -l)
                                     
