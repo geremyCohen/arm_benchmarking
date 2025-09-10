@@ -7,20 +7,184 @@ In this section, we walk you through optimizations including optimization levels
 
 ## Optimization Levels and Architecture Targeting
 
-## 🔹 Compiler Optimization Levels
-
-| Flag     | Description | Typical Use Case |
-|----------|-------------|------------------|
-| **`-O0`** | No optimization, fast compilation, easy debugging. | Debug builds. |
-| **`-O1`** | Basic optimizations with minimal compile-time cost. | Quick builds with some speed. |
-| **`-O2`** | Standard “production” optimization, balance of speed and size. | Default for production. |
-| **`-O3`** | Aggressive optimizations, larger binaries, max performance focus. | Performance-critical workloads. |
-| **`-Ofast`** | Unsafe optimizations, ignores strict standards (e.g., relaxed math). | HPC, simulations, ML code (test correctness carefully). |
+The quickest, least effort optimizations come from using compiler optimization levels and architecture-specific flags.  These optimizations are easy to apply, require no code changes, and can provide significant performance improvements.  You'll begin experimenting first with compiler optimization levels.
 
 
-Architecture-Specific Targeting
+### Compiler Optimization Levels
 
-The most important optimization is targeting your specific Neoverse processor:
+When you compile code, if you don't specify an optimization flag, the compiler defaults to no optimization (`-O0`).  This is great for debugging, but produces very slow code.  In this section, you'll explore common optimization levels, including:
+
+| Flag     | Description                                                          | Typical Use Case                                   |
+|----------|----------------------------------------------------------------------|----------------------------------------------------|
+| **`-O0`** | (Default) No optimization, fast compilation, easy debugging.         | Debug builds.                                      |
+| **`-O1`** | Basic optimizations with minimal compile-time cost.                  | Quick builds with some speed.                      |
+| **`-O2`** | Standard “production” optimization, balance of speed and size.       | Default for production.                            |
+| **`-O3`** | Aggressive optimizations, larger binaries, max performance focus.    | Performance-critical workloads.                    |
+
+Time to get hands-on!
+
+To begin, compile, run, and generate a non-optimized baseline on your local instance:
+
+```bash
+./scripts/04/test-all-combinations.sh --baseline-only --runs 1```
+
+If you have your own C code you'd like to try this with, ...
+```
+You will see output similar to:
+
+```output
+
+### Micro Matrix (64x64)
+
+| Rank  | GFLOPS   | Run    | Compile    | Opt  | -march          | -mtune          | PGO | Individual Runs |
+|       |          | Time   | Time       |      |                 |                |     |                 |
+|-------|----------|--------|------------|------|-----------------|----------------|-----|-----------------|
+| -1    | 0.7038   | 0.001  | .037178183 | -O0  | None            | None            | F   | [0.7038]        |
+
+### Small Matrix (512x512)
+
+| Rank  | GFLOPS   | Run    | Compile    | Opt  | -march          | -mtune          | PGO | Individual Runs |
+|       |          | Time   | Time       |      |                 |                |     |                 |
+|-------|----------|--------|------------|------|-----------------|----------------|-----|-----------------|
+| -1    | 0.6323   | 0.425  | .037733062 | -O0  | None            | None            | F   | [0.6323]        |
+```
+
+Do not feel overwhelmed by the amount of values!  For now, all that is needed to remember is that GFLOPS is an easy-to-understand metric to first work with.
+
+### Understanding the Output
+
+- **Rank -1**: Baseline run with no optimizations applied.
+- **GFLOPS**: Giga Floating Point Operations Per Second (higher is better).
+- **Run Time**: Time taken to execute the matrix multiplication.
+- **Compile Time**: Time taken to compile the code with the specified flags.
+- **Opt**: Compiler optimization level used (e.g., -O0, -O1, -O2, -O3).
+- **-march and -mtune**: Architecture-specific flags, if any.
+- **PGO**: Profile-Guided Optimization used (T = true, F = false).
+- **Individual Runs**: List of GFLOPS for each run, useful for analyzing variability.
+
+
+In the example, the code runs the micro and small matrices at baseline (-O0) optimization level, producing a very low baseline GFLOPS (0.70 and 0.63 respectively).  This is expected as no optimizations are applied.
+
+### Run Count
+By default, the script runs each configuration once times to get an average performance.
+
+You can adjust this with the `--runs` parameter.  For example, to run micro and small matrix tests, for each configuration 3 times:
+
+```commandline
+./scripts/04/test-all-combinations.sh --baseline-only --runs 3
+```
+
+you will see output like:
+
+```output
+### Micro Matrix (64x64)
+
+| Rank  | GFLOPS   | Run    | Compile    | Opt  | -march          | -mtune          | PGO | Individual Runs |
+|       |          | Time   | Time       |      |                 |                |     |                 |
+|-------|----------|--------|------------|------|-----------------|----------------|-----|-----------------|
+| -1    | .706     | .001   | .036       | -O0  | None            | None            | F   | [0.7056,0.7066,0.7130] |
+
+### Small Matrix (512x512)
+
+| Rank  | GFLOPS   | Run    | Compile    | Opt  | -march          | -mtune          | PGO | Individual Runs |
+|       |          | Time   | Time       |      |                 |                |     |                 |
+|-------|----------|--------|------------|------|-----------------|----------------|-----|-----------------|
+| -1    | .630     | .425   | .037       | -O0  | None            | None            | F   | [0.6341,0.6309,0.6309] |
+```
+
+Note the Individual Runs column now shows the results of each individual run, which can be useful to see variability in performance.  The GLOPS column calculates an average of these run samples.  No more than (number of cores-2) runs are executed in parallel to avoid taxing the system during metrics-taking.
+
+### Increasing Optimization Levels
+Now that you know how to baseline and run tests in parallel, it's time to explore higher optimization levels.
+
+When increasing compiler optimization levels, consider the "bang for the buck"! Most of the performance gains come from the first level of optimization (-O1).  Higher levels (-O2, -O3) provide diminishing returns, and may even hurt performance in some cases.
+
+You can specify the optimization level using the `--opt` parameter.  For example, to test optimization levels 0 and 1:
+
+```commandline
+
+ubuntu@ip-172-31-18-33:~/arm_benchmarking$ ./scripts/04/test-all-combinations.sh --opt-levels 0,1
+...
+=== Performance Results (Grouped by Matrix Size) ===
+
+### Micro Matrix (64x64)
+
+| Rank  | GFLOPS   | Run    | Compile    | Opt  | -march          | -mtune          | PGO | Individual Runs |
+|       |          | Time   | Time       |      |                 |                |     |                 |
+|-------|----------|--------|------------|------|-----------------|----------------|-----|-----------------|
+| -1    | 0.7116   | 0.001  | .036468426 | -O0  | None            | None            | F   | [0.7116]        |
+| 1     | 3.9681   | 0.000  | .048374333 | -O1  | None            | None            | F   | [3.9681]        |
+
+### Small Matrix (512x512)
+
+| Rank  | GFLOPS   | Run    | Compile    | Opt  | -march          | -mtune          | PGO | Individual Runs |
+|       |          | Time   | Time       |      |                 |                |     |                 |
+|-------|----------|--------|------------|------|-----------------|----------------|-----|-----------------|
+| -1    | 0.6275   | 0.428  | .035180066 | -O0  | None            | None            | F   | [0.6275]        |
+| 1     | 1.9831   | 0.135  | .049730056 | -O1  | None            | None            | F   | [1.9831]        |
+
+=== Key Insights ===
+
+**Micro Matrix (64x64) Performance:**
+-- Best: 450.0% performance **gain** over baseline using -O1, -march None, -mtune None, extra flags None
+
+**Small Matrix (512x512) Performance:**
+-- Best: 210.0% performance **gain** over baseline using -O1, -march None, -mtune None, extra flags None
+```
+You can see from this run that setting the -01 flag results in a massive 4.0 GFLOPS for the micro matrix (a 450% improvement over baseline) and a 1.98 GFLOPS for the small matrix (a 210% improvement over baseline).
+
+You could then also see what happens across a three-run average with optimization levels 0-3:
+
+```commandline
+./scripts/04/test-all-combinations.sh --opt-levels 0,1,2,3 --runs 3 
+...
+### Micro Matrix (64x64)
+
+| Rank  | GFLOPS   | Run    | Compile    | Opt  | -march          | -mtune          | PGO | Individual Runs |
+|       |          | Time   | Time       |      |                 |                |     |                 |
+|-------|----------|--------|------------|------|-----------------|----------------|-----|-----------------|
+| -1    | .713     | .001   | .036       | -O0  | None            | None            | F   | [0.7190,0.7130,0.7085] |
+| 1     | 4.350    | 0      | .056       | -O2  | None            | None            | F   | [4.2072,4.4002,4.3502] |
+| 2     | 4.319    | 0      | .059       | -O3  | None            | None            | F   | [4.2174,4.3192,4.3337] |
+| 3     | 3.900    | 0      | .049       | -O1  | None            | None            | F   | [3.9814,3.9003,3.5629] |
+
+### Small Matrix (512x512)
+
+| Rank  | GFLOPS   | Run    | Compile    | Opt  | -march          | -mtune          | PGO | Individual Runs |
+|       |          | Time   | Time       |      |                 |                |     |                 |
+|-------|----------|--------|------------|------|-----------------|----------------|-----|-----------------|
+| -1    | .633     | .424   | .035       | -O0  | None            | None            | F   | [0.6299,0.6338,0.6345] |
+| 1     | 2.269    | .118   | .054       | -O2  | None            | None            | F   | [2.2330,2.2785,2.2693] |
+| 2     | 2.258    | .119   | .058       | -O3  | None            | None            | F   | [2.2585,2.2555,2.2972] |
+| 3     | 1.982    | .135   | .047       | -O1  | None            | None            | F   | [1.9805,1.9865,1.9822] |
+
+=== Key Insights ===
+
+**Micro Matrix (64x64) Performance:**
+-- Best: 510.0% performance **gain** over baseline using -O2, -march None, -mtune None, extra flags None
+-- Worst: 440.0% performance **gain** over baseline using -O1, -march None, -mtune None, extra flags None
+
+**Small Matrix (512x512) Performance:**
+-- Best: 250.0% performance **gain** over baseline using -O2, -march None, -mtune None, extra flags None
+-- Worst: 210.0% performance **gain** over baseline using -O1, -march None, -mtune None, extra flags None
+```
+Using -O2 provides the best performance for both micro (4.35 GFLOPS, 510% improvement) and small (2.27 GFLOPS, 250% improvement) matrices.  
+
+
+You've now learned how setting the optimization level can provide massive performance improvements with Arm CPUs.  
+
+Next you'll explore the next level of easy to implement optimizations: architecture-specific targeting flags.
+
+
+
+### Architecture-Specific Targeting
+
+
+
+When compiling, you can specify architecture-specific flags to enable optimizations specific to the Arm CPU architecture you run on.  This can provide additional performance improvements by enabling CPU-specific instruction sets and optimizations.
+
+Common architecture targeting flags include the -march and -mtune flags.  The -march flag enables specific instruction set features available on the target architecture, while the -mtune flag optimizes instruction scheduling for a specific CPU, but still runs on older CPUs.
+
 
 ```bash
 # Neoverse N1
