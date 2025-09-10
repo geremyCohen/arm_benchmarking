@@ -487,14 +487,31 @@ for size in "${sizes[@]}"; do
                                                     
                                                     # Check if profile data was generated (look for any .gcda files)
                                                     if [ $? -eq 0 ] && [ -n "$(find $pgo_workspace -name "*.gcda" 2>/dev/null)" ]; then
+                                                        # Copy profile data to expected name for compilation
+                                                        for gcda_file in $pgo_workspace/*.gcda; do
+                                                            if [ -f "$gcda_file" ]; then
+                                                                cp "$gcda_file" "$pgo_workspace/${pgo_base}-optimized_matrix.gcda"
+                                                                break
+                                                            fi
+                                                        done
+                                                        
                                                         # Compile with profile data in workspace
                                                         compile2_start=$(date +%s.%N)
                                                         src_path="$(pwd)/src/optimized_matrix.c"
                                                         if [ "$verbose" = true ]; then
                                                             echo "cd $pgo_workspace && gcc $flags -fprofile-use -Wno-coverage-mismatch -Wall -o ${pgo_base} $src_path -lm"
-                                                            (cd $pgo_workspace && gcc $flags -fprofile-use -Wno-coverage-mismatch -Wall -o ${pgo_base} "$src_path" -lm)
+                                                            compile_output=$(cd $pgo_workspace && gcc $flags -fprofile-use -Wno-coverage-mismatch -Wall -o ${pgo_base} "$src_path" -lm 2>&1)
+                                                            echo "$compile_output"
+                                                            if echo "$compile_output" | grep -q "missing-profile"; then
+                                                                echo "ERROR: PGO profile data not found despite .gcda files existing. PGO is not working correctly."
+                                                                exit 1
+                                                            fi
                                                         else
-                                                            (cd $pgo_workspace && gcc $flags -fprofile-use -Wno-coverage-mismatch -Wall -o ${pgo_base} "$src_path" -lm 2>/dev/null)
+                                                            compile_output=$(cd $pgo_workspace && gcc $flags -fprofile-use -Wno-coverage-mismatch -Wall -o ${pgo_base} "$src_path" -lm 2>&1)
+                                                            if echo "$compile_output" | grep -q "missing-profile"; then
+                                                                echo "ERROR: PGO profile data not found. PGO is not working correctly."
+                                                                exit 1
+                                                            fi
                                                         fi
                                                         compile2_end=$(date +%s.%N)
                                                         compile2_time=$(echo "scale=3; $compile2_end - $compile2_start" | bc -l)
@@ -644,14 +661,31 @@ for size in "${sizes[@]}"; do
                                         
                                         # Check if profile data was generated (look for any .gcda files)
                                         if [ $? -eq 0 ] && [ -n "$(find $pgo_workspace -name "*.gcda" 2>/dev/null)" ]; then
+                                            # Copy profile data to expected name for compilation
+                                            for gcda_file in $pgo_workspace/*.gcda; do
+                                                if [ -f "$gcda_file" ]; then
+                                                    cp "$gcda_file" "$pgo_workspace/${pgo_base}-optimized_matrix.gcda"
+                                                    break
+                                                fi
+                                            done
+                                            
                                             # Compile with profile data in workspace
                                             compile2_start=$(date +%s.%N)
                                             src_path="$(pwd)/src/optimized_matrix.c"
                                             if [ "$verbose" = true ]; then
                                                 echo "cd $pgo_workspace && gcc $flags -fprofile-use -Wno-coverage-mismatch -Wall -o ${pgo_base} $src_path -lm"
-                                                (cd $pgo_workspace && gcc $flags -fprofile-use -Wno-coverage-mismatch -Wall -o ${pgo_base} "$src_path" -lm)
+                                                compile_output=$(cd $pgo_workspace && gcc $flags -fprofile-use -Wno-coverage-mismatch -Wall -o ${pgo_base} "$src_path" -lm 2>&1)
+                                                echo "$compile_output"
+                                                if echo "$compile_output" | grep -q "missing-profile"; then
+                                                    echo "ERROR: PGO profile data not found despite .gcda files existing. PGO is not working correctly."
+                                                    exit 1
+                                                fi
                                             else
-                                                (cd $pgo_workspace && gcc $flags -fprofile-use -Wno-coverage-mismatch -Wall -o ${pgo_base} "$src_path" -lm 2>/dev/null)
+                                                compile_output=$(cd $pgo_workspace && gcc $flags -fprofile-use -Wno-coverage-mismatch -Wall -o ${pgo_base} "$src_path" -lm 2>&1)
+                                                if echo "$compile_output" | grep -q "missing-profile"; then
+                                                    echo "ERROR: PGO profile data not found. PGO is not working correctly."
+                                                    exit 1
+                                                fi
                                             fi
                                             compile2_end=$(date +%s.%N)
                                             compile2_time=$(echo "scale=3; $compile2_end - $compile2_start" | bc -l)
