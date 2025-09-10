@@ -57,7 +57,14 @@ int main(int argc, char *argv[]) {
     double end = get_time();
     
     double time_sec = end - start;
-    double gflops = (2.0 * N * N * N) / (time_sec * 1e9);
+    double gflops;
+    
+    // Prevent divide by zero
+    if (time_sec <= 0.0 || time_sec < 1e-9) {
+        time_sec = 1e-9; // Set minimum time to 1 nanosecond
+    }
+    
+    gflops = (2.0 * N * N * N) / (time_sec * 1e9);
     
     printf("Time: %.3f seconds\n", time_sec);
     printf("Performance: %.4f GFLOPS\n", gflops);

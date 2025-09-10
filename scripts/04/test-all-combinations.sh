@@ -445,6 +445,9 @@ for size in "${sizes[@]}"; do
                                                     
                                                     # Check if profile data was generated
                                                     if [ $? -eq 0 ] && [ -f "temp/${pgo_base}_gen-optimized_matrix.gcda" ]; then
+                                                        # Rename profile data to match expected name for compilation
+                                                        mv "temp/${pgo_base}_gen-optimized_matrix.gcda" "temp/${pgo_base}-optimized_matrix.gcda" 2>/dev/null
+                                                        
                                                         # Compile with profile data in temp directory
                                                         compile2_start=$(date +%s.%N)
                                                         if [ "$verbose" = true ]; then
@@ -568,51 +571,53 @@ for size in "${sizes[@]}"; do
                                 exe_name="temp/combo_${opt}_${march}_${mtune}_${pgo}_${size}_$$_${RANDOM}_${run}"
                                 
                                 if [ $pgo -eq 1 ]; then
-                                    # PGO compilation
+                                    # PGO compilation - use consistent naming
                                     compile1_start=$(date +%s.%N)
+                                    pgo_base="pgo_${opt}_${march}_${mtune}_${size}_$$_${run}"
                                     if [ "$verbose" = true ]; then
-                                        echo "gcc $flags -fprofile-generate -Wall -o ${exe_name}_gen src/optimized_matrix.c -lm"
-                                        gcc $flags -fprofile-generate -Wall -o ${exe_name}_gen src/optimized_matrix.c -lm
+                                        echo "gcc $flags -fprofile-generate -Wall -o temp/${pgo_base}_gen src/optimized_matrix.c -lm"
+                                        gcc $flags -fprofile-generate -Wall -o temp/${pgo_base}_gen src/optimized_matrix.c -lm
                                     else
-                                        gcc $flags -fprofile-generate -Wall -o ${exe_name}_gen src/optimized_matrix.c -lm 2>/dev/null
+                                        gcc $flags -fprofile-generate -Wall -o temp/${pgo_base}_gen src/optimized_matrix.c -lm 2>/dev/null
                                     fi
                                     compile1_end=$(date +%s.%N)
                                     compile1_time=$(echo "scale=3; $compile1_end - $compile1_start" | bc -l)
                                     
-                                    if [ $? -eq 0 ] && [ -x "${exe_name}_gen" ]; then
-                                        # Clean any existing profile data in current and temp directories
+                                    if [ $? -eq 0 ] && [ -x "temp/${pgo_base}_gen" ]; then
+                                        # Clean any existing profile data
                                         rm -f *.gcda temp/*.gcda 2>/dev/null
                                         
                                         # Run profile generation in temp directory
                                         profile_start=$(date +%s.%N)
                                         if [ "$verbose" = true ]; then
-                                            echo "cd temp && ../${exe_name}_gen $size"
-                                            (cd temp && ../${exe_name}_gen $size >/dev/null)
+                                            echo "cd temp && ./${pgo_base}_gen $size"
+                                            (cd temp && ./${pgo_base}_gen $size >/dev/null)
                                         else
-                                            (cd temp && ../${exe_name}_gen $size >/dev/null 2>&1)
+                                            (cd temp && ./${pgo_base}_gen $size >/dev/null 2>&1)
                                         fi
                                         profile_end=$(date +%s.%N)
                                         profile_time=$(echo "scale=3; $profile_end - $profile_start" | bc -l)
                                         
-                                        # Check if profile data was generated in temp directory
-                                        if [ $? -eq 0 ] && ls temp/*-optimized_matrix.gcda >/dev/null 2>&1; then
-                                            # Copy profile data to current directory for compilation
-                                            cp temp/*-optimized_matrix.gcda . 2>/dev/null
+                                        # Check if profile data was generated
+                                        if [ $? -eq 0 ] && [ -f "temp/${pgo_base}_gen-optimized_matrix.gcda" ]; then
+                                            # Rename profile data to match expected name for compilation
+                                            mv "temp/${pgo_base}_gen-optimized_matrix.gcda" "temp/${pgo_base}-optimized_matrix.gcda" 2>/dev/null
                                             
+                                            # Compile with profile data in temp directory
                                             compile2_start=$(date +%s.%N)
                                             if [ "$verbose" = true ]; then
-                                                echo "gcc $flags -fprofile-use -Wall -o $exe_name src/optimized_matrix.c -lm"
-                                                gcc $flags -fprofile-use -Wall -o $exe_name src/optimized_matrix.c -lm
+                                                echo "cd temp && gcc $flags -fprofile-use -Wall -o ${pgo_base} ../src/optimized_matrix.c -lm"
+                                                (cd temp && gcc $flags -fprofile-use -Wall -o ${pgo_base} ../src/optimized_matrix.c -lm)
                                             else
-                                                gcc $flags -fprofile-use -Wall -o $exe_name src/optimized_matrix.c -lm 2>/dev/null
+                                                (cd temp && gcc $flags -fprofile-use -Wall -o ${pgo_base} ../src/optimized_matrix.c -lm 2>/dev/null)
                                             fi
                                             compile2_end=$(date +%s.%N)
                                             compile2_time=$(echo "scale=3; $compile2_end - $compile2_start" | bc -l)
                                             
                                             total_compile_time=$(echo "scale=3; $compile1_time + $profile_time + $compile2_time" | bc -l)
                                             
-                                            if [ $? -eq 0 ] && [ -x "$exe_name" ]; then
-                                                result=$(./$exe_name $size 2>/dev/null)
+                                            if [ $? -eq 0 ] && [ -x "temp/${pgo_base}" ]; then
+                                                result=$(cd temp && ./${pgo_base} $size 2>/dev/null)
                                                 run_gflops=$(echo "$result" | grep "Performance:" | awk '{print $2}')
                                                 run_time=$(echo "$result" | grep "Time:" | awk '{print $2}')
                                                 
@@ -628,7 +633,7 @@ for size in "${sizes[@]}"; do
                                                 echo "Profile generation failed, skipping PGO for this combination"
                                             fi
                                         fi
-                                        rm -f $exe_name ${exe_name}_gen *.gcda temp/*.gcda 2>/dev/null
+                                        rm -f temp/${pgo_base}_gen temp/${pgo_base} temp/*.gcda 2>/dev/null
                                     fi
                                 else
                                     # Standard compilation
