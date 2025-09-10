@@ -280,8 +280,8 @@ else
     done
     
     if [ "$use_arch_flags" = true ]; then
-        march_options=("none" "native" "neoverse")
-        mtune_options=("none" "native" "neoverse")
+        march_options=("none" "native")
+        mtune_options=("none" "native")
     else
         march_options=("none")
         mtune_options=("none")
