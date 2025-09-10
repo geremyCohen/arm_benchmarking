@@ -132,17 +132,17 @@ fi
 # Set extra optimization flags
 if [ "$use_extra_flags" = true ]; then
     extra_flags=("flto" "fomit-frame-pointer" "funroll-loops")
-    echo "Including additional optimization flags (8x more combinations: 2^3 flag combinations)"
+    echo "Extra flags: Enabled (8x more combinations: 2^3 flag combinations)"
 else
     extra_flags=()
-    echo "Using standard optimization flags only"
+    echo "Extra flags: Disabled"
 fi
 
 # Set profile-guided optimization
 if [ "$use_pgo" = true ]; then
-    echo "Including profile-guided optimization (2x more combinations: with/without PGO)"
+    echo "PGO: Enabled (2x more combinations: with/without PGO)"
 else
-    echo "Using standard compilation only"
+    echo "PGO: Disabled"
 fi
 echo
 
