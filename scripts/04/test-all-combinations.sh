@@ -103,6 +103,14 @@ else
     echo "Running each combination once (single run)"
 fi
 
+echo "Runs: $num_runs"
+echo "Optimization levels: $opt_levels_arg"
+if [ "$use_arch_flags" = true ]; then
+    echo "Architecture flags: Enabled"
+else
+    echo "Architecture flags: Disabled"
+fi
+
 # Parse matrix sizes
 sizes=()
 IFS=',' read -ra SIZE_ARRAY <<< "$matrix_sizes_arg"
@@ -120,7 +128,17 @@ if [ ${#sizes[@]} -eq 0 ]; then
     exit 1
 fi
 
-echo "Testing sizes: ${sizes[*]}"
+# Convert sizes array to readable format
+size_names=()
+for size in "${sizes[@]}"; do
+    case $size in
+        "micro") size_names+=("micro (64x64)") ;;
+        "small") size_names+=("small (512x512)") ;;
+        "medium") size_names+=("medium (1024x1024)") ;;
+    esac
+done
+size_display=$(IFS=', '; echo "${size_names[*]}")
+echo "Matrix sizes: $size_display"
 
 # Display baseline-only mode message
 if [ "$baseline_only" = true ]; then
