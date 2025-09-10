@@ -451,10 +451,10 @@ for size in "${sizes[@]}"; do
                                                         # Compile with profile data in temp directory
                                                         compile2_start=$(date +%s.%N)
                                                         if [ "$verbose" = true ]; then
-                                                            echo "cd temp && gcc $flags -fprofile-use -Wall -o ${pgo_base} ../src/optimized_matrix.c -lm"
-                                                            (cd temp && gcc $flags -fprofile-use -Wall -o ${pgo_base} ../src/optimized_matrix.c -lm)
+                                                            echo "cd temp && gcc $flags -fprofile-use -Wno-error=coverage-mismatch -Wall -o ${pgo_base} ../src/optimized_matrix.c -lm"
+                                                            (cd temp && gcc $flags -fprofile-use -Wno-error=coverage-mismatch -Wall -o ${pgo_base} ../src/optimized_matrix.c -lm)
                                                         else
-                                                            (cd temp && gcc $flags -fprofile-use -Wall -o ${pgo_base} ../src/optimized_matrix.c -lm 2>/dev/null)
+                                                            (cd temp && gcc $flags -fprofile-use -Wno-error=coverage-mismatch -Wall -o ${pgo_base} ../src/optimized_matrix.c -lm 2>/dev/null)
                                                         fi
                                                         compile2_end=$(date +%s.%N)
                                                         compile2_time=$(echo "scale=3; $compile2_end - $compile2_start" | bc -l)
@@ -606,10 +606,10 @@ for size in "${sizes[@]}"; do
                                             # Compile with profile data in temp directory
                                             compile2_start=$(date +%s.%N)
                                             if [ "$verbose" = true ]; then
-                                                echo "cd temp && gcc $flags -fprofile-use -Wall -o ${pgo_base} ../src/optimized_matrix.c -lm"
-                                                (cd temp && gcc $flags -fprofile-use -Wall -o ${pgo_base} ../src/optimized_matrix.c -lm)
+                                                echo "cd temp && gcc $flags -fprofile-use -Wno-error=coverage-mismatch -Wall -o ${pgo_base} ../src/optimized_matrix.c -lm"
+                                                (cd temp && gcc $flags -fprofile-use -Wno-error=coverage-mismatch -Wall -o ${pgo_base} ../src/optimized_matrix.c -lm)
                                             else
-                                                (cd temp && gcc $flags -fprofile-use -Wall -o ${pgo_base} ../src/optimized_matrix.c -lm 2>/dev/null)
+                                                (cd temp && gcc $flags -fprofile-use -Wno-error=coverage-mismatch -Wall -o ${pgo_base} ../src/optimized_matrix.c -lm 2>/dev/null)
                                             fi
                                             compile2_end=$(date +%s.%N)
                                             compile2_time=$(echo "scale=3; $compile2_end - $compile2_start" | bc -l)
