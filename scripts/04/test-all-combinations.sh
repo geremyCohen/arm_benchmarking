@@ -7,6 +7,7 @@ if [[ "$1" == "-h" || "$1" == "--help" ]]; then
     echo
     echo "Options:"
     echo "  --runs N         Number of runs per combination for accuracy (1-7, default: 1)"
+    echo "  --opt-levels L   Optimization levels to test (0,1,2,3 combinations, default: 0,1,2,3)"
     echo "  --sizes S        Matrix sizes to test (1,2,3 combinations, default: 1,2)"
     echo "                   1=micro (64x64), 2=small (512x512), 3=medium (1024x1024)"
     echo "  --extra-flags    Include extra optimization flags (default: disabled)"
@@ -19,7 +20,7 @@ if [[ "$1" == "-h" || "$1" == "--help" ]]; then
     echo "Examples:"
     echo "  $0                                    # Default: 1 run, micro+small, no extra flags"
     echo "  $0 --runs 3 --sizes 1,2,3 --extra-flags --pgo"
-    echo "  $0 --runs 5 --sizes 1                # 5 runs, micro only"
+    echo "  $0 --runs 5 --sizes 1 --opt-levels 2,3   # 5 runs, micro only, O2+O3 only"
     echo "  $0 --sizes 2,3 --extra-flags         # Small+medium with extra flags"
     echo "  $0 --baseline-only --runs 3           # Baseline only, 3 runs"
     exit 0
@@ -34,6 +35,7 @@ rm -rf temp/*
 
 # Default values
 num_runs=1
+opt_levels_arg="0,1,2,3"
 matrix_sizes_arg="1,2"
 use_extra_flags=false
 use_pgo=false
@@ -44,6 +46,10 @@ while [[ $# -gt 0 ]]; do
     case $1 in
         --runs)
             num_runs="$2"
+            shift 2
+            ;;
+        --opt-levels)
+            opt_levels_arg="$2"
             shift 2
             ;;
         --sizes)
@@ -75,6 +81,15 @@ if [[ ! "$num_runs" =~ ^[1-7]$ ]]; then
     echo "Error: --runs must be 1-7, got: $num_runs"
     exit 1
 fi
+
+# Parse and validate opt levels
+IFS=',' read -ra OPT_LEVELS <<< "$opt_levels_arg"
+for level in "${OPT_LEVELS[@]}"; do
+    if [[ ! "$level" =~ ^[0-3]$ ]]; then
+        echo "Error: --opt-levels must contain only 0,1,2,3, got: $level"
+        exit 1
+    fi
+done
 
 if [ "$num_runs" -gt 1 ]; then
     echo "Running each combination $num_runs times (using trimmed mean to remove outliers)"
@@ -194,7 +209,11 @@ if [ "$baseline_only" = true ]; then
     march_options=("none")
     mtune_options=("none")
 else
-    opt_levels=("O0" "O1" "O2" "O3")
+    # Convert parsed opt levels to array with O prefix
+    opt_levels=()
+    for level in "${OPT_LEVELS[@]}"; do
+        opt_levels+=("O$level")
+    done
     march_options=("none" "native" "neoverse")
     mtune_options=("none" "native" "neoverse")
 fi
