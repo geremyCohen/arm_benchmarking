@@ -800,13 +800,13 @@ for target_size in "${sizes[@]}"; do
             # Convert march/mtune to display names
             case $march in
                 "none") march_flag="None" ;;
-                "native") march_flag="Autodetect" ;;
+                "native") march_flag="native" ;;
                 "neoverse") march_flag="V2" ;;
             esac
             
             case $mtune in
                 "none") mtune_flag="None" ;;
-                "native") mtune_flag="Autodetect" ;;
+                "native") mtune_flag="native" ;;
                 "neoverse") mtune_flag="V2" ;;
             esac
             
@@ -874,7 +874,7 @@ fi
 get_arch_name() {
     case $1 in
         "none") echo "None" ;;
-        "native") echo "Autodetect" ;;
+        "native") echo "native" ;;
         "neoverse") echo "V2" ;;
         *) echo "$1" ;;
     esac
