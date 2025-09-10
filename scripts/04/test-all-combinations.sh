@@ -8,6 +8,7 @@ if [[ "$1" == "-h" || "$1" == "--help" ]]; then
     echo "Options:"
     echo "  --runs N         Number of runs per combination for accuracy (1-7, default: 1)"
     echo "  --opt-levels L   Optimization levels to test (0,1,2,3 combinations, default: 0,1,2,3)"
+    echo "  --arch-flags     Enable march/mtune combination testing (default: disabled)"
     echo "  --sizes S        Matrix sizes to test (1,2,3 combinations, default: 1,2)"
     echo "                   1=micro (64x64), 2=small (512x512), 3=medium (1024x1024)"
     echo "  --extra-flags    Include extra optimization flags (default: disabled)"
@@ -21,7 +22,7 @@ if [[ "$1" == "-h" || "$1" == "--help" ]]; then
     echo "  $0                                    # Default: 1 run, micro+small, no extra flags"
     echo "  $0 --runs 3 --sizes 1,2,3 --extra-flags --pgo"
     echo "  $0 --runs 5 --sizes 1 --opt-levels 2,3   # 5 runs, micro only, O2+O3 only"
-    echo "  $0 --sizes 2,3 --extra-flags         # Small+medium with extra flags"
+    echo "  $0 --sizes 2,3 --extra-flags --arch-flags # Small+medium with extra flags and arch testing"
     echo "  $0 --baseline-only --runs 3           # Baseline only, 3 runs"
     exit 0
 fi
@@ -40,6 +41,7 @@ matrix_sizes_arg="1,2"
 use_extra_flags=false
 use_pgo=false
 baseline_only=false
+use_arch_flags=false
 
 # Parse named arguments
 while [[ $# -gt 0 ]]; do
@@ -55,6 +57,10 @@ while [[ $# -gt 0 ]]; do
         --sizes)
             matrix_sizes_arg="$2"
             shift 2
+            ;;
+        --arch-flags)
+            use_arch_flags=true
+            shift
             ;;
         --extra-flags)
             use_extra_flags=true
@@ -214,8 +220,14 @@ else
     for level in "${OPT_LEVELS[@]}"; do
         opt_levels+=("O$level")
     done
-    march_options=("none" "native" "neoverse")
-    mtune_options=("none" "native" "neoverse")
+    
+    if [ "$use_arch_flags" = true ]; then
+        march_options=("none" "native" "neoverse")
+        mtune_options=("none" "native" "neoverse")
+    else
+        march_options=("none")
+        mtune_options=("none")
+    fi
 fi
 
 # Initialize status files for all combinations
