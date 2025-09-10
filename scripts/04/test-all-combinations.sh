@@ -337,8 +337,8 @@ done
         echo
         
         # Table header
-        printf "| %-12s | %-8s | %-8s | %-8s | %-8s |\n" "Matrix Size" "Pending" "Running" "Complete" "Current"
-        printf "|--------------|----------|----------|----------|----------|\n"
+        printf "| %-14s | %-7s | %-7s | %-7s | %-8s | %-7s |\n" "Matrix Size" "Pending" "Running" "Complete" "Current" "Run#"
+        printf "|----------------|---------|---------|---------|----------|----------|\n"
         
         for size in "${sizes[@]}"; do
             size_pending=$(find "$STATUS_DIR" -name "*_${size}" -exec grep -l "Pending" {} \; 2>/dev/null | wc -l)
@@ -346,15 +346,19 @@ done
             size_complete=$(find "$STATUS_DIR" -name "*_${size}" -exec grep -l "Complete" {} \; 2>/dev/null | wc -l)
             
             current_run=""
+            run_number=""
             if [ $size_running -gt 0 ]; then
                 running_status=$(find "$STATUS_DIR" -name "*_${size}" -exec grep "Running" {} \; 2>/dev/null | head -1)
                 if [[ "$running_status" =~ Running\ \(([0-9]+)/[0-9]+\) ]]; then
-                    current_run="Run ${BASH_REMATCH[1]}"
+                    current_run="Active"
+                    run_number="${BASH_REMATCH[1]}"
                 else
-                    current_run="Run 1"
+                    current_run="Active"
+                    run_number="1"
                 fi
             else
                 current_run="-"
+                run_number="-"
             fi
             
             # Convert size to readable name
@@ -364,7 +368,7 @@ done
                 *) size_name="$size" ;;
             esac
             
-            printf "| %-12s | %-8s | %-8s | %-8s | %-8s |\n" "$size_name" "$size_pending" "$size_running" "$size_complete" "$current_run"
+            printf "| %-14s | %-7s | %-7s | %-7s | %-8s | %-7s |\n" "$size_name" "$size_pending" "$size_running" "$size_complete" "$current_run" "$run_number"
         done
         echo
         
