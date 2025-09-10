@@ -286,6 +286,21 @@ else
         opt_levels+=("O$level")
     done
     
+    # Auto-include O0 for baseline if not explicitly specified and not the only level
+    has_o0=false
+    for level in "${opt_levels[@]}"; do
+        if [ "$level" = "O0" ]; then
+            has_o0=true
+            break
+        fi
+    done
+    
+    # If O0 is not included and we have other levels, add O0 for baseline
+    if [ "$has_o0" = false ] && [ ${#opt_levels[@]} -gt 0 ]; then
+        opt_levels=("O0" "${opt_levels[@]}")
+        echo "Auto-including -O0 for baseline comparison"
+    fi
+    
     if [ "$use_arch_flags" = true ]; then
         march_options=("none" "native")
         mtune_options=("none" "native")
