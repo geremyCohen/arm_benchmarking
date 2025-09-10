@@ -30,9 +30,6 @@ for arg in "$@"; do
     fi
 done
 
-echo "=== Comprehensive Compiler Optimization Analysis ==="
-echo
-
 # Clean previous results
 rm -rf results/comprehensive/*
 rm -rf temp/*
@@ -105,6 +102,9 @@ for level in "${OPT_LEVELS[@]}"; do
     fi
 done
 
+echo "=== Comprehensive Compiler Optimization Analysis ==="
+echo
+echo "=== Test Configuration ==="
 if [ "$num_runs" -gt 1 ]; then
     echo "Running each combination $num_runs times (using trimmed mean to remove outliers)"
 else
