@@ -741,15 +741,23 @@ done
 
 echo "=== Key Insights ==="
 
-# Get baseline performance from O0/native/native results in our test data
-if [ "$use_extra_flags" = true ]; then
-    baseline_micro=$(printf '%s\n' "${sorted[@]}" | grep "|O0|native|native||micro|" | head -1 | cut -d'|' -f2)
-    baseline_small=$(printf '%s\n' "${sorted[@]}" | grep "|O0|native|native||small|" | head -1 | cut -d'|' -f2)
-    baseline_medium=$(printf '%s\n' "${sorted[@]}" | grep "|O0|native|native||medium|" | head -1 | cut -d'|' -f2)
+# Get baseline performance from O0 results in our test data
+if [ "$use_arch_flags" = true ]; then
+    # When arch flags are enabled, look for O0|native|native
+    baseline_pattern="|O0|native|native|"
 else
-    baseline_micro=$(printf '%s\n' "${sorted[@]}" | grep "|O0|native|native||micro|" | head -1 | cut -d'|' -f2)
-    baseline_small=$(printf '%s\n' "${sorted[@]}" | grep "|O0|native|native||small|" | head -1 | cut -d'|' -f2)
-    baseline_medium=$(printf '%s\n' "${sorted[@]}" | grep "|O0|native|native||medium|" | head -1 | cut -d'|' -f2)
+    # When arch flags are disabled, look for O0|none|none
+    baseline_pattern="|O0|none|none|"
+fi
+
+if [ "$use_extra_flags" = true ]; then
+    baseline_micro=$(printf '%s\n' "${sorted[@]}" | grep "${baseline_pattern}|micro|" | head -1 | cut -d'|' -f2)
+    baseline_small=$(printf '%s\n' "${sorted[@]}" | grep "${baseline_pattern}|small|" | head -1 | cut -d'|' -f2)
+    baseline_medium=$(printf '%s\n' "${sorted[@]}" | grep "${baseline_pattern}|medium|" | head -1 | cut -d'|' -f2)
+else
+    baseline_micro=$(printf '%s\n' "${sorted[@]}" | grep "${baseline_pattern}|micro|" | head -1 | cut -d'|' -f2)
+    baseline_small=$(printf '%s\n' "${sorted[@]}" | grep "${baseline_pattern}|small|" | head -1 | cut -d'|' -f2)
+    baseline_medium=$(printf '%s\n' "${sorted[@]}" | grep "${baseline_pattern}|medium|" | head -1 | cut -d'|' -f2)
 fi
 
 # Function to convert arch names to readable format
