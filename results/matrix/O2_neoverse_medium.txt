@@ -1,0 +1,2 @@
+Performance: 4.80 GFLOPS
+Time: 2.500 seconds
