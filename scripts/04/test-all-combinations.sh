@@ -336,9 +336,9 @@ done
         echo "Updated: $(date '+%H:%M:%S')"
         echo
         
-        # Table header
-        printf "| %-14s | %-7s | %-7s | %-7s | %-8s | %-7s |\n" "Matrix Size" "Pending" "Running" "Complete" "Current" "Run#"
-        printf "|----------------|---------|---------|---------|----------|----------|\n"
+        # Table header with consistent column widths
+        printf "| %-16s | %-7s | %-7s | %-8s | %-8s | %-5s |\n" "Matrix Size" "Pending" "Running" "Complete" "Current" "Run#"
+        printf "|------------------|---------|---------|----------|----------|-------|\n"
         
         for size in "${sizes[@]}"; do
             size_pending=$(find "$STATUS_DIR" -name "*_${size}" -exec grep -l "Pending" {} \; 2>/dev/null | wc -l)
@@ -368,7 +368,7 @@ done
                 *) size_name="$size" ;;
             esac
             
-            printf "| %-14s | %-7s | %-7s | %-7s | %-8s | %-7s |\n" "$size_name" "$size_pending" "$size_running" "$size_complete" "$current_run" "$run_number"
+            printf "| %-16s | %-7s | %-7s | %-8s | %-8s | %-5s |\n" "$size_name" "$size_pending" "$size_running" "$size_complete" "$current_run" "$run_number"
         done
         echo
         
