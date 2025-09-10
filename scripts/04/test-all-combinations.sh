@@ -202,7 +202,12 @@ calculate_trimmed_mean() {
         ((used_count++))
     done
     
-    echo "scale=3; $sum / $used_count" | bc -l
+    # Prevent divide by zero
+    if [ $used_count -eq 0 ]; then
+        echo "0"
+    else
+        echo "scale=3; $sum / $used_count" | bc -l
+    fi
 }
 
 # Detect Neoverse processor type
@@ -897,7 +902,11 @@ for size in "${sizes[@]}"; do
         echo "**${size^} Matrix ($size_desc) Performance:**"
         
         # Best performance
-        best_speedup=$(echo "scale=1; ($best_gflops - $baseline) / $baseline * 100" | bc -l 2>/dev/null || echo "0")
+        if [ ! -z "$baseline" ] && [ "$baseline" != "0" ] && [ "$baseline" != "" ]; then
+            best_speedup=$(echo "scale=1; ($best_gflops - $baseline) / $baseline * 100" | bc -l 2>/dev/null || echo "0")
+        else
+            best_speedup="0"
+        fi
         best_march_name=$(get_arch_name "$best_march")
         best_mtune_name=$(get_arch_name "$best_mtune")
         best_extra_display=$([ -z "$best_extra" ] && echo "None" || echo "$best_extra")
@@ -913,7 +922,11 @@ for size in "${sizes[@]}"; do
         
         # Worst performance (if different from best)
         if [ ! -z "$worst_gflops" ] && [ "$worst_gflops" != "$best_gflops" ] && [ "$worst_gflops" != "" ]; then
-            worst_speedup=$(echo "scale=1; ($worst_gflops - $baseline) / $baseline * 100" | bc -l 2>/dev/null || echo "0")
+            if [ ! -z "$baseline" ] && [ "$baseline" != "0" ] && [ "$baseline" != "" ]; then
+                worst_speedup=$(echo "scale=1; ($worst_gflops - $baseline) / $baseline * 100" | bc -l 2>/dev/null || echo "0")
+            else
+                worst_speedup="0"
+            fi
             worst_march_name=$(get_arch_name "$worst_march")
             worst_mtune_name=$(get_arch_name "$worst_mtune")
             worst_extra_display=$([ -z "$worst_extra" ] && echo "None" || echo "$worst_extra")
