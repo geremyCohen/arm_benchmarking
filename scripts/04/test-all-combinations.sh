@@ -1,8 +1,9 @@
 #!/bin/bash
 # test-all-combinations.sh - Test all combinations with consolidated logic for all matrix sizes
 
-# Check for help flags
-if [[ "$1" == "-h" || "$1" == "--help" ]]; then
+# Check for help flags anywhere in arguments
+for arg in "$@"; do
+    if [[ "$arg" == "-h" || "$arg" == "--help" ]]; then
     echo "Usage: $0 [OPTIONS]"
     echo
     echo "Options:"
@@ -26,7 +27,8 @@ if [[ "$1" == "-h" || "$1" == "--help" ]]; then
     echo "  $0 --sizes 2,3 --extra-flags --arch-flags # Small+medium with extra flags and arch testing"
     echo "  $0 --baseline-only --runs 3           # Baseline only, 3 runs"
     exit 0
-fi
+    fi
+done
 
 echo "=== Comprehensive Compiler Optimization Analysis ==="
 echo
