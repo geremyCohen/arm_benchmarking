@@ -489,11 +489,12 @@ for size in "${sizes[@]}"; do
                                                     if [ $? -eq 0 ] && [ -n "$(find $pgo_workspace -name "*.gcda" 2>/dev/null)" ]; then
                                                         # Compile with profile data in workspace
                                                         compile2_start=$(date +%s.%N)
+                                                        src_path="$(pwd)/src/optimized_matrix.c"
                                                         if [ "$verbose" = true ]; then
-                                                            echo "cd $pgo_workspace && gcc $flags -fprofile-use -Wno-coverage-mismatch -Wall -o ${pgo_base} $PWD/src/optimized_matrix.c -lm"
-                                                            (cd $pgo_workspace && gcc $flags -fprofile-use -Wno-coverage-mismatch -Wall -o ${pgo_base} $PWD/src/optimized_matrix.c -lm)
+                                                            echo "cd $pgo_workspace && gcc $flags -fprofile-use -Wno-coverage-mismatch -Wall -o ${pgo_base} $src_path -lm"
+                                                            (cd $pgo_workspace && gcc $flags -fprofile-use -Wno-coverage-mismatch -Wall -o ${pgo_base} "$src_path" -lm)
                                                         else
-                                                            (cd $pgo_workspace && gcc $flags -fprofile-use -Wno-coverage-mismatch -Wall -o ${pgo_base} $PWD/src/optimized_matrix.c -lm 2>/dev/null)
+                                                            (cd $pgo_workspace && gcc $flags -fprofile-use -Wno-coverage-mismatch -Wall -o ${pgo_base} "$src_path" -lm 2>/dev/null)
                                                         fi
                                                         compile2_end=$(date +%s.%N)
                                                         compile2_time=$(echo "scale=3; $compile2_end - $compile2_start" | bc -l)
@@ -645,11 +646,12 @@ for size in "${sizes[@]}"; do
                                         if [ $? -eq 0 ] && [ -n "$(find $pgo_workspace -name "*.gcda" 2>/dev/null)" ]; then
                                             # Compile with profile data in workspace
                                             compile2_start=$(date +%s.%N)
+                                            src_path="$(pwd)/src/optimized_matrix.c"
                                             if [ "$verbose" = true ]; then
-                                                echo "cd $pgo_workspace && gcc $flags -fprofile-use -Wno-coverage-mismatch -Wall -o ${pgo_base} $PWD/src/optimized_matrix.c -lm"
-                                                (cd $pgo_workspace && gcc $flags -fprofile-use -Wno-coverage-mismatch -Wall -o ${pgo_base} $PWD/src/optimized_matrix.c -lm)
+                                                echo "cd $pgo_workspace && gcc $flags -fprofile-use -Wno-coverage-mismatch -Wall -o ${pgo_base} $src_path -lm"
+                                                (cd $pgo_workspace && gcc $flags -fprofile-use -Wno-coverage-mismatch -Wall -o ${pgo_base} "$src_path" -lm)
                                             else
-                                                (cd $pgo_workspace && gcc $flags -fprofile-use -Wno-coverage-mismatch -Wall -o ${pgo_base} $PWD/src/optimized_matrix.c -lm 2>/dev/null)
+                                                (cd $pgo_workspace && gcc $flags -fprofile-use -Wno-coverage-mismatch -Wall -o ${pgo_base} "$src_path" -lm 2>/dev/null)
                                             fi
                                             compile2_end=$(date +%s.%N)
                                             compile2_time=$(echo "scale=3; $compile2_end - $compile2_start" | bc -l)
