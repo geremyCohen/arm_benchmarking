@@ -336,6 +336,10 @@ done
         echo "Updated: $(date '+%H:%M:%S')"
         echo
         
+        # Table header
+        printf "| %-12s | %-8s | %-8s | %-8s | %-8s |\n" "Matrix Size" "Pending" "Running" "Complete" "Current"
+        printf "|--------------|----------|----------|----------|----------|\n"
+        
         for size in "${sizes[@]}"; do
             size_pending=$(find "$STATUS_DIR" -name "*_${size}" -exec grep -l "Pending" {} \; 2>/dev/null | wc -l)
             size_running=$(find "$STATUS_DIR" -name "*_${size}" -exec grep -l "Running" {} \; 2>/dev/null | wc -l)
@@ -345,17 +349,22 @@ done
             if [ $size_running -gt 0 ]; then
                 running_status=$(find "$STATUS_DIR" -name "*_${size}" -exec grep "Running" {} \; 2>/dev/null | head -1)
                 if [[ "$running_status" =~ Running\ \(([0-9]+)/[0-9]+\) ]]; then
-                    current_run="${BASH_REMATCH[1]}"
+                    current_run="Run ${BASH_REMATCH[1]}"
                 else
-                    current_run="1"
+                    current_run="Run 1"
                 fi
+            else
+                current_run="-"
             fi
             
-            if [ -n "$current_run" ]; then
-                echo "${size} matrix compile runs run#/pending/running/complete ${current_run}/${size_pending}/${size_running}/${size_complete}"
-            else
-                echo "${size} matrix compile runs pending/running/complete ${size_pending}/${size_running}/${size_complete}"
-            fi
+            # Convert size to readable name
+            case $size in
+                "micro") size_name="Micro (64x64)" ;;
+                "small") size_name="Small (512x512)" ;;
+                *) size_name="$size" ;;
+            esac
+            
+            printf "| %-12s | %-8s | %-8s | %-8s | %-8s |\n" "$size_name" "$size_pending" "$size_running" "$size_complete" "$current_run"
         done
         echo
         
