@@ -237,6 +237,13 @@ calculate_trimmed_mean() {
         return
     fi
     
+    if [ $count -eq 2 ]; then
+        # For 2 values, just take the average
+        local sum=$(echo "scale=6; ${values[0]} + ${values[1]}" | bc -l)
+        echo "scale=3; $sum / 2" | bc -l
+        return
+    fi
+    
     # Sort values
     IFS=$'\n' sorted=($(printf '%s\n' "${values[@]}" | sort -n))
     
@@ -483,10 +490,10 @@ for size in "${sizes[@]}"; do
                                                         # Compile with profile data in workspace
                                                         compile2_start=$(date +%s.%N)
                                                         if [ "$verbose" = true ]; then
-                                                            echo "cd $pgo_workspace && gcc $flags -fprofile-use -Wno-coverage-mismatch -Wall -o ${pgo_base} ../src/optimized_matrix.c -lm"
-                                                            (cd $pgo_workspace && gcc $flags -fprofile-use -Wno-coverage-mismatch -Wall -o ${pgo_base} ../src/optimized_matrix.c -lm)
+                                                            echo "cd $pgo_workspace && gcc $flags -fprofile-use -Wno-coverage-mismatch -Wall -o ${pgo_base} $PWD/src/optimized_matrix.c -lm"
+                                                            (cd $pgo_workspace && gcc $flags -fprofile-use -Wno-coverage-mismatch -Wall -o ${pgo_base} $PWD/src/optimized_matrix.c -lm)
                                                         else
-                                                            (cd $pgo_workspace && gcc $flags -fprofile-use -Wno-coverage-mismatch -Wall -o ${pgo_base} ../src/optimized_matrix.c -lm 2>/dev/null)
+                                                            (cd $pgo_workspace && gcc $flags -fprofile-use -Wno-coverage-mismatch -Wall -o ${pgo_base} $PWD/src/optimized_matrix.c -lm 2>/dev/null)
                                                         fi
                                                         compile2_end=$(date +%s.%N)
                                                         compile2_time=$(echo "scale=3; $compile2_end - $compile2_start" | bc -l)
@@ -639,10 +646,10 @@ for size in "${sizes[@]}"; do
                                             # Compile with profile data in workspace
                                             compile2_start=$(date +%s.%N)
                                             if [ "$verbose" = true ]; then
-                                                echo "cd $pgo_workspace && gcc $flags -fprofile-use -Wno-coverage-mismatch -Wall -o ${pgo_base} ../src/optimized_matrix.c -lm"
-                                                (cd $pgo_workspace && gcc $flags -fprofile-use -Wno-coverage-mismatch -Wall -o ${pgo_base} ../src/optimized_matrix.c -lm)
+                                                echo "cd $pgo_workspace && gcc $flags -fprofile-use -Wno-coverage-mismatch -Wall -o ${pgo_base} $PWD/src/optimized_matrix.c -lm"
+                                                (cd $pgo_workspace && gcc $flags -fprofile-use -Wno-coverage-mismatch -Wall -o ${pgo_base} $PWD/src/optimized_matrix.c -lm)
                                             else
-                                                (cd $pgo_workspace && gcc $flags -fprofile-use -Wno-coverage-mismatch -Wall -o ${pgo_base} ../src/optimized_matrix.c -lm 2>/dev/null)
+                                                (cd $pgo_workspace && gcc $flags -fprofile-use -Wno-coverage-mismatch -Wall -o ${pgo_base} $PWD/src/optimized_matrix.c -lm 2>/dev/null)
                                             fi
                                             compile2_end=$(date +%s.%N)
                                             compile2_time=$(echo "scale=3; $compile2_end - $compile2_start" | bc -l)
