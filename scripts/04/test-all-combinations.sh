@@ -349,7 +349,6 @@ done
 # Start status monitor in background
 (
     while [ -d "$STATUS_DIR" ]; do
-        printf "\033[2J\033[H"
         echo "=== Benchmark Status Dashboard ==="
         echo "Updated: $(date '+%H:%M:%S')"
         echo
@@ -807,7 +806,6 @@ kill $MONITOR_PID 2>/dev/null
 wait $MONITOR_PID 2>/dev/null
 sleep 1
 rm -rf "$STATUS_DIR"
-printf "\033[2J\033[H"
 
 # Collect results
 for result_file in /tmp/combo_results_$$/*; do
