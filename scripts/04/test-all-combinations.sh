@@ -223,7 +223,7 @@ if [ -z "$NATIVE_MARCH" ]; then
 fi
 
 echo "-march HW detected: $NATIVE_MARCH"
-echo "-march predefined: $MARCH_SPECIFIC"
+echo "-march compiler-defined: $MARCH_SPECIFIC"
 echo "Testing all combinations of optimization levels, architecture flags, and matrix sizes..."
 echo
 
