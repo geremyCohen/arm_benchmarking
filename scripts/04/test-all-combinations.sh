@@ -815,8 +815,10 @@ for target_size in "${sizes[@]}"; do
         if [ "$size" = "$target_size" ] && [ "$opt" = "O0" ] && [ "$march" = "none" ] && [ "$mtune" = "none" ] && [ "$extra_flags" = "" ]; then
             if [ "$use_extra_flags" = true ]; then
                 printf "\033[1m| %-5s | %-8s | %-6s | %-10s | %-4s | %-15s | %-15s | %-20s | %-3s | %-15s |\033[0m\n" "-1" "$gflops" "$time" "$compile_time" "-$opt" "None" "None" "None" "F" "$runs_detail"
+                printf "|-------|----------|--------|------------|------|-----------------|----------------|---------------------|-----|-----------------|\n"
             else
                 printf "\033[1m| %-5s | %-8s | %-6s | %-10s | %-4s | %-15s | %-15s | %-3s | %-15s |\033[0m\n" "-1" "$gflops" "$time" "$compile_time" "-$opt" "None" "None" "F" "$runs_detail"
+                printf "|-------|----------|--------|------------|------|-----------------|----------------|-----|-----------------|\n"
             fi
             break
         fi
