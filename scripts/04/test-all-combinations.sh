@@ -115,9 +115,6 @@ echo "Runs: $num_runs"
 echo "Optimization levels: $opt_levels_arg"
 if [ "$use_arch_flags" = true ]; then
     echo "Architecture flags: Enabled"
-    echo "  when -march None is tested: (no flags) is literally passed to the compiler."
-    echo "  when -march native is tested: \"-march=native\" is literally passed to the compiler."
-    echo "  when -march family is tested: \"-march=$MARCH_SPECIFIC -mtune=$MTUNE_SPECIFIC\" is literally passed to the compiler."
 else
     echo "Architecture flags: Disabled"
 fi
@@ -205,6 +202,13 @@ case $NEOVERSE_TYPE in
 esac
 
 echo "Detected: $NEOVERSE_TYPE"
+
+# Show detailed architecture flags if enabled
+if [ "$use_arch_flags" = true ]; then
+    echo "  when -march None is tested: (no flags) is literally passed to the compiler."
+    echo "  when -march native is tested: \"-march=native\" is literally passed to the compiler."
+    echo "  when -march family is tested: \"-march=$MARCH_SPECIFIC -mtune=$MTUNE_SPECIFIC\" is literally passed to the compiler."
+fi
 
 # Detect what native would resolve to
 NATIVE_MTUNE=$(gcc -march=native -mtune=native -Q --help=target 2>/dev/null | grep -E "^\s*-mtune=" | awk -F= '{print $2}' | tr -d ' ')
