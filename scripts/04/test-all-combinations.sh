@@ -302,7 +302,7 @@ else
     fi
     
     if [ "$use_arch_flags" = true ]; then
-        march_options=("none" "native" "neoverse")
+        march_options=("none" "native" "family")
         mtune_options=("none" "native")
     else
         march_options=("none")
@@ -445,12 +445,12 @@ for size in "${sizes[@]}"; do
                                     
                                     case $march in
                                         "native") flags="$flags -march=native" ;;
-                                        "neoverse") flags="$flags -march=$MARCH_SPECIFIC" ;;
+                                        "family") flags="$flags -march=$MARCH_SPECIFIC" ;;
                                     esac
                                     
                                     case $mtune in
                                         "native") flags="$flags -mtune=native" ;;
-                                        "neoverse") flags="$flags -mtune=$MTUNE_SPECIFIC" ;;
+                                        "family") flags="$flags -mtune=$MTUNE_SPECIFIC" ;;
                                     esac
                                     
                                     # Add extra flags
@@ -626,12 +626,12 @@ for size in "${sizes[@]}"; do
                         
                         case $march in
                             "native") flags="$flags -march=native" ;;
-                            "neoverse") flags="$flags -march=$MARCH_SPECIFIC" ;;
+                            "family") flags="$flags -march=$MARCH_SPECIFIC" ;;
                         esac
                         
                         case $mtune in
                             "native") flags="$flags -mtune=native" ;;
-                            "neoverse") flags="$flags -mtune=$MTUNE_SPECIFIC" ;;
+                            "family") flags="$flags -mtune=$MTUNE_SPECIFIC" ;;
                         esac
                         
                         march_desc="$march"
@@ -902,13 +902,13 @@ for target_size in "${sizes[@]}"; do
             case $march in
                 "none") march_flag="None" ;;
                 "native") march_flag="native" ;;
-                "neoverse") march_flag="neoverse" ;;
+                "family") march_flag="family" ;;
             esac
             
             case $mtune in
                 "none") mtune_flag="None" ;;
                 "native") mtune_flag="native" ;;
-                "neoverse") mtune_flag="V2" ;;
+                "family") mtune_flag="V2" ;;
             esac
             
             # Detect PGO usage
@@ -976,7 +976,7 @@ get_arch_name() {
     case $1 in
         "none") echo "None" ;;
         "native") echo "native" ;;
-        "neoverse") echo "V2" ;;
+        "family") echo "V2" ;;
         *) echo "$1" ;;
     esac
 }
