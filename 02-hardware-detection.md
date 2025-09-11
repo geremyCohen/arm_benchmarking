@@ -1,15 +1,4 @@
-# CPU Instruction Set Features
 
-CPU instruction set features are specialized hardware capabilities that extend the base ARM architecture with additional instructions for specific workloads. These features enable significant performance improvements by providing hardware acceleration for common operations like vector math, atomic operations, and cryptography.
-
-The tutorial automatically detects which instruction set features are available on your Neoverse processor and enables corresponding optimization modules. Understanding these features helps you choose the most effective optimization strategies for your specific hardware.
-
-| Processor | Key Features | Typical Use Cases | Cloud Availability |
-|-----------|--------------|-------------------|-------------------|
-| **Neoverse N1** | NEON, LSE atomics, crypto extensions | Web servers, databases, general compute | **AWS**: Graviton2 (M6g, C6g, R6g, T4g)<br>**Azure**: Ampere Altra (Dpsv5, Dplsv5, Epsv5) and Altra Max (Dpsv6, Dplsv6, Epsv6)<br>**GCP**: Tau T2A instances |
-| **Neoverse N2** | NEON, SVE2, LSE atomics, improved crypto | HPC, ML inference, high-performance databases | Not yet commercially available in major cloud offerings |
-| **Neoverse V1** | NEON, SVE, wide execution, large caches | Scientific computing, simulation, AI training | **AWS**: Graviton3 (M7g, C7g, R7g, Hpc7g) |
-| **Neoverse V2** | NEON, SVE2, enhanced matrix operations | AI/ML workloads, scientific computing | **AWS**: Graviton4 (M8g, C8g, R8g - newer releases) |
 
 ### ARM Instruction Set Features Detection
 
@@ -40,16 +29,6 @@ HAS_CRYPTO:BOOL=YES
 SVE_VL:STRING=256
 ```
 
-## Compiler Flag Selection
-
-Based on your detected hardware, the tutorial's build system (CMake) automatically selects optimal compiler flags when you compile the optimization examples. The flags are set in the generated `CMakeCache.txt` and applied during the build process:
-
-| Processor | Compiler Flags |
-|-----------|----------------|
-| **Neoverse N1** | `-march=armv8.2-a+fp16+rcpc+dotprod+crypto -mtune=neoverse-n1` |
-| **Neoverse N2** | `-march=armv9-a+sve2+bf16+i8mm -mtune=neoverse-n2` |
-| **Neoverse V1** | `-march=armv8.4-a+sve+bf16+i8mm -mtune=neoverse-v1` |
-| **Neoverse V2** | `-march=armv9-a+sve2+bf16+i8mm -mtune=neoverse-v2` |
 
 ## Verification Commands
 
@@ -70,3 +49,17 @@ Now that hardware detection is complete, you can:
 > **ℹ️ Hardware Note**: If you're running on a cloud instance, some features (like SVE) may not be available depending on the instance type. The tutorial will automatically adapt to available features.
 
 Ready to establish your performance baseline? Continue to [Baseline Performance Measurement](./03-baseline.md).
+
+[//]: # (| Processor | Pre-defined Compiler Flags                                          | `-march` Description | `-mtune` Description |)
+
+[//]: # (|-----------|---------------------------------------------------------------------|-------------------------------|-----------------------|)
+
+[//]: # (| **Neoverse N1** | `-march=armv8.2-a+fp16+rcpc+dotprod+crypto`<br>`-mtune=neoverse-n1` | **armv8.2-a**: Baseline ISA with FP16 and atomics enhancements.<br>**+fp16**: Native half-precision floating point ops.<br>**+rcpc**: RCpc atomics for efficient multithreaded memory ordering.<br>**+dotprod**: Dot product instructions for ML/DSP acceleration.<br>**+crypto**: Hardware AES/SHA crypto acceleration. | Tunes instruction scheduling, cache usage, and pipelines for **Neoverse N1**, optimized for cloud/server workloads. |)
+
+[//]: # (| **Neoverse N2** | `-march=armv9-a+sve2+bf16+i8mm`<br>`-mtune=neoverse-n2`             | **armv9-a**: ARMv9 baseline with security and vector upgrades.<br>**+sve2**: Scalable Vector Extension 2, advanced variable-length SIMD.<br>**+bf16**: Brain Floating Point 16 support for AI workloads.<br>**+i8mm**: Int8 matrix multiplication instructions for quantized ML. | Optimizes for **Neoverse N2**, balancing high single-thread performance and power efficiency in cloud compute. |)
+
+[//]: # (| **Neoverse V1** | `-march=armv8.4-a+sve+bf16+i8mm`<br>`-mtune=neoverse-v1`            | **armv8.4-a**: Baseline ISA with stronger memory model and new atomics.<br>**+sve**: First-gen Scalable Vector Extension for variable-length SIMD.<br>**+bf16**: Bfloat16 arithmetic for AI training/inference.<br>**+i8mm**: Int8 matrix multiplication for ML acceleration. | Tunes code generation for **Neoverse V1**, focusing on HPC and vector-heavy workloads with wide SVE pipelines. |)
+
+[//]: # (| **Neoverse V2** | `-march=armv9-a+sve2+bf16+i8mm`<br>`-mtune=neoverse-v2`             | **armv9-a**: Successor to ARMv8 with enhanced security and vector ISA.<br>**+sve2**: Next-gen scalable SIMD for cloud/HPC/AI.<br>**+bf16**: Bfloat16 arithmetic.<br>**+i8mm**: Int8 matrix multiplication. | Optimizes scheduling and code layout for **Neoverse V2**, combining HPC-class SVE2 with cloud-friendly efficiency. |)
+
+[//]: # (If you are brave enough to read that table, you'll see a lot of new vocabulary like SIMD, SVE, and SVE2. You will learn more about them as we proceed in the tutorial, but don't worry about knowing or memorizing those yet.)

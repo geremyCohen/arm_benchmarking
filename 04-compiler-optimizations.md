@@ -168,43 +168,155 @@ You could then also see what happens across a three-run average with optimizatio
 -- Best: 250.0% performance **gain** over baseline using -O2, -march None, -mtune None, extra flags None
 -- Worst: 210.0% performance **gain** over baseline using -O1, -march None, -mtune None, extra flags None
 ```
-Using -O2 provides the best performance for both micro (4.35 GFLOPS, 510% improvement) and small (2.27 GFLOPS, 250% improvement) matrices.  
+From the test run results, you can see that using -O2 provides the best performance for both micro (4.35 GFLOPS, 510% improvement) and small (2.27 GFLOPS, 250% improvement) matrices.  
+
+Congrats!  You've now learned how setting the optimization level can provide massive performance improvements with Arm CPUs.  
+
+Next you'll experiment with architecture-targeting flags, an easy way to get additional, incremental performance improvements.
+
+### Architecture-Specific Targeting with -march and -mtune
+
+The architecture targeting flags -march and -mtune are a good place to start when introducing architecture-specific optimizations.  The -march flag enables specific instruction set features available on the target architecture, while the -mtune tunes instruction scheduling for a specific processor family.
+
+The application you are compiling may not specifically take advantage of the optimizations -mtune and -march provide because:
+
+1) The application logic doesn't implement dependent code paths that would benefit from these optimizations.
+2) The application logic does implement dependent code paths, but its not written in a way that the compiler can optimize for these flags.
+
+As such, gains in performance by enabling these flags can be variable; none, small, or large benefits are all based on how your application is written.  
+
+#### -mtune
+
+The -mtune flag tunes the compiler for a specific processor family, with backward compatibility on older ARM CPUs.  There are three ways to implement this flag:
+
+- **`-mtune=none`**: Generic tuning optimizations are made, nothing specific to the actual processor or family. This is the default if no -mtune flag is provided as well.
+- **`-mtune=native`**: GCC reads the CPUID from /proc/cpuinfo, then performs a lookup against GCC's built-in metadata table to retrieve the correlating "processor family" name (e.g., neoverse-v2) and associated tuning values.
+- **`-mtune=neoverse-n1`**, **`-mtune=neoverse-xy`**, like native, but lets you override family with a specific value (if you don't want to use the value native returns).
 
 
-You've now learned how setting the optimization level can provide massive performance improvements with Arm CPUs.  
+#### -march
 
-Next you'll explore the next level of easy to implement optimizations: architecture-specific targeting flags.
+The -march flag enables specific instruction set features of the processor.  This can provide significant performance improvements, but may break compatibility with older ARM CPUs that do not support those features.  There are three ways to implement this flag as well:
+
+- **`-march=none`**: Only the most general instruction architectural features are enabled. This is the default if no -march flag is provided as well.
+- **`-march=family`**: Compiler-defined optimizations for a specific Neoverse family (N1, N2, V1, V2).  More generic than native, but more comprehensive than none.
+- **`-march=native`**: When you ask for native, under-the-hood GCC queries the CPU hardware for the most up-to-date features sets included in the processor.
 
 
 
-### Architecture-Specific Targeting
+### Testing Architecture-Specific Flags
 
-
-
-When compiling, you can specify architecture-specific flags to enable optimizations specific to the Arm CPU architecture you run on.  This can provide additional performance improvements by enabling CPU-specific instruction sets and optimizations.
-
-Common architecture targeting flags include the -march and -mtune flags.  The -march flag enables specific instruction set features available on the target architecture, while the -mtune flag optimizes instruction scheduling for a specific CPU, but still runs on older CPUs.
-
+Run the following command to test optimization levels 1 and 2, with architecture-specific flags enabled, running each configuration 3 times:
 
 ```bash
-# Neoverse N1
-CFLAGS="-march=armv8.2-a+fp16+rcpc+dotprod+crypto -mtune=neoverse-n1"
+ubuntu@ip-172-31-16-119:~/arm_benchmarking$ ./scripts/04/test-all-combinations.sh --opt-levels 1,2 --runs 3 --arch-flags --sizes 1,2
+```
+The output will look like this:
 
-# Neoverse N2  
-CFLAGS="-march=armv9-a+sve2+bf16+i8mm -mtune=neoverse-n2"
+```output
+### Micro Matrix (64x64)
 
-# Neoverse V1
-CFLAGS="-march=armv8.4-a+sve+bf16+i8mm -mtune=neoverse-v1"
+| Rank  | GFLOPS   | Run    | Compile    | Opt  | -march          | -mtune          | PGO | Individual Runs |
+|       |          | Time   | Time       |      |                 |                |     |                 |
+|-------|----------|--------|------------|------|-----------------|----------------|-----|-----------------|
+| -1    | .731     | .001   | .033       | -O0  | None            | None            | F   | [0.7409,0.7311,0.7304] |
+|-------|----------|--------|------------|------|-----------------|----------------|-----|-----------------|
+| 1     | 4.499    | 0      | .052       | -O2  | native          | native          | F   | [4.5155,4.4992,4.4879] |
+| 2     | 4.369    | 0      | .051       | -O2  | None            | None            | F   | [4.3697,4.3648,4.3744] |
+| 3     | 4.132    | 0      | .052       | -O2  | None            | native          | F   | [4.1322,4.0733,4.5143] |
+| 4     | 4.111    | 0      | .045       | -O1  | family          | None            | F   | [4.0986,4.1314,4.1110] |
+| 5     | 4.107    | 0      | .045       | -O1  | family          | native          | F   | [4.1074,4.1067,4.1179] |
+| 6     | 4.103    | 0      | .044       | -O1  | native          | native          | F   | [4.1039,4.1009,4.1034] |
+| 7     | 4.103    | 0      | .044       | -O1  | native          | None            | F   | [3.7433,4.1060,4.1030] |
+| 8     | 4.097    | 0      | .044       | -O1  | None            | None            | F   | [4.0976,4.1304,3.8044] |
+| 9     | 4.044    | 0      | .044       | -O1  | None            | native          | F   | [4.0442,3.8461,4.1176] |
+| 10    | 3.731    | 0      | .053       | -O2  | family          | None            | F   | [3.4764,3.7316,3.7312] |
+| 11    | 3.731    | 0      | .054       | -O2  | family          | native          | F   | [3.7314,3.7315,3.7310] |
+| 12    | 3.471    | 0      | .053       | -O2  | native          | None            | F   | [3.4719,3.7313,3.3175] |
+| 13    | .740     | .001   | .034       | -O0  | native          | None            | F   | [0.7403,0.7288,0.7416] |
+| 14    | .738     | .001   | .033       | -O0  | family          | None            | F   | [0.7399,0.7313,0.7386] |
+| 15    | .733     | .001   | .033       | -O0  | None            | native          | F   | [0.7370,0.7330,0.7330] |
+| 16    | .733     | .001   | .034       | -O0  | native          | native          | F   | [0.7331,0.7402,0.7322] |
+| 17    | .729     | .001   | .034       | -O0  | family          | native          | F   | [0.7326,0.7248,0.7291] |
 
-# Neoverse V2
-CFLAGS="-march=armv9-a+sve2+bf16+i8mm -mtune=neoverse-v2"
+### Small Matrix (512x512)
+
+| Rank  | GFLOPS   | Run    | Compile    | Opt  | -march          | -mtune          | PGO | Individual Runs |
+|       |          | Time   | Time       |      |                 |                |     |                 |
+|-------|----------|--------|------------|------|-----------------|----------------|-----|-----------------|
+| -1    | .658     | .407   | .033       | -O0  | None            | None            | F   | [0.6582,0.6589,0.6590] |
+|-------|----------|--------|------------|------|-----------------|----------------|-----|-----------------|
+| 1     | 2.618    | .103   | .054       | -O2  | family          | None            | F   | [2.6186,2.6096,2.6234] |
+| 2     | 2.614    | .103   | .054       | -O2  | native          | None            | F   | [2.6013,2.6214,2.6147] |
+| 3     | 2.612    | .103   | .054       | -O2  | family          | native          | F   | [2.5995,2.6131,2.6120] |
+| 4     | 2.413    | .111   | .043       | -O1  | None            | None            | F   | [2.4139,2.4079,2.4138] |
+| 5     | 2.409    | .111   | .044       | -O1  | native          | native          | F   | [2.4092,2.4025,2.4129] |
+| 6     | 2.407    | .112   | .045       | -O1  | native          | None            | F   | [2.4130,2.4012,2.4072] |
+| 7     | 2.402    | .112   | .044       | -O1  | family          | None            | F   | [2.4153,2.3863,2.4020] |
+| 8     | 2.396    | .112   | .045       | -O1  | family          | native          | F   | [2.4049,2.3959,2.3960] |
+| 9     | 2.395    | .112   | .044       | -O1  | None            | native          | F   | [2.4091,2.3953,2.3940] |
+| 10    | 2.364    | .114   | .053       | -O2  | None            | native          | F   | [2.3643,2.3686,2.3612] |
+| 11    | 2.363    | .114   | .053       | -O2  | native          | native          | F   | [2.3450,2.3634,2.3753] |
+| 12    | 2.355    | .114   | .052       | -O2  | None            | None            | F   | [2.3574,2.3208,2.3559] |
+| 13    | .656     | .409   | .034       | -O0  | family          | native          | F   | [0.6569,0.6576,0.6534] |
+| 14    | .656     | .409   | .034       | -O0  | native          | native          | F   | [0.6573,0.6537,0.6566] |
+| 15    | .655     | .409   | .034       | -O0  | None            | native          | F   | [0.6559,0.6596,0.6540] |
+| 16    | .655     | .410   | .034       | -O0  | native          | None            | F   | [0.6559,0.6551,0.6467] |
+| 17    | .653     | .411   | .034       | -O0  | family          | None            | F   | [0.6534,0.6532,0.6569] |
+
+=== Key Insights ===
+
+**Micro Matrix (64x64) Performance:**
+-- Best: 510.0% performance **gain** over baseline using -O2, -march native, -mtune native, extra flags None
+-- Worst: 370.0% performance **gain** over baseline using -O2, -march native, -mtune None, extra flags None
+
+**Small Matrix (512x512) Performance:**
+-- Best: 290.0% performance **gain** over baseline using -O2, -march family, -mtune None, extra flags None
+-- Worst: 250.0% performance **gain** over baseline using -O2, -march None, -mtune None, extra flags None
 ```
 
-**What these flags do:**
-- `-march`: Enables instruction set features available on the target
-- `-mtune`: Optimizes instruction scheduling for the specific processor
-- Feature flags (`+sve2`, `+bf16`, etc.): Enable specific instruction extensions
+You can now see the -march and -mtune flags in action.  In this example, using -O2 with -march native and -mtune native provides the best performance for the micro matrix (4.50 GFLOPS, 510% improvement) and using -O2 with -march family and -mtune None provides the best performance for the small matrix (2.62 GFLOPS, 290% improvement).
 
+Run again with this command line to see results for optimization levels 2 and 3, with architecture-specific flags enabled, running each configuration 3 times, against the medium (1024x1024) matrix size:
+
+```bash
+./scripts/04/test-all-combinations.sh --opt-levels 2,3 --runs 3 --arch-flags --sizes 3
+```
+
+You can see that as the matrix size increases, the performance benefits of architecture-specific flags may vary.  In this example, using -O2 with -march native and -mtune native provides the best performance for the medium matrix (1.15 GFLOPS, 160% improvement over baseline):
+
+```output
+### Medium Matrix (1024x1024)
+
+| Rank  | GFLOPS   | Run    | Compile    | Opt  | -march          | -mtune          | PGO | Individual Runs |
+|       |          | Time   | Time       |      |                 |                |     |                 |
+|-------|----------|--------|------------|------|-----------------|----------------|-----|-----------------|
+| -1    | .628     | 3.415  | .033       | -O0  | None            | None            | F   | [0.6097,0.6288,0.6410] |
+|-------|----------|--------|------------|------|-----------------|----------------|-----|-----------------|
+| 1     | 1.231    | 1.743  | .057       | -O3  | native          | native          | F   | [1.2244,1.2317,1.2379] |
+| 2     | 1.230    | 1.746  | .055       | -O2  | family          | None            | F   | [1.2243,1.2303,1.2307] |
+| 3     | 1.229    | 1.746  | .054       | -O2  | native          | native          | F   | [1.2242,1.2305,1.2299] |
+| 4     | 1.229    | 1.746  | .056       | -O2  | family          | native          | F   | [1.2243,1.2299,1.2321] |
+| 5     | 1.229    | 1.746  | .056       | -O3  | None            | None            | F   | [1.2243,1.2299,1.2335] |
+| 6     | 1.229    | 1.746  | .058       | -O3  | None            | native          | F   | [1.2241,1.2296,1.2351] |
+| 7     | 1.229    | 1.747  | .054       | -O2  | None            | native          | F   | [1.2243,1.2304,1.2290] |
+| 8     | 1.229    | 1.747  | .056       | -O2  | native          | None            | F   | [1.2241,1.2306,1.2292] |
+| 9     | 1.229    | 1.747  | .058       | -O3  | family          | None            | F   | [1.2247,1.2294,1.2399] |
+| 10    | 1.229    | 1.747  | .059       | -O3  | family          | native          | F   | [1.2250,1.2293,1.2414] |
+| 11    | 1.229    | 1.747  | .059       | -O3  | native          | None            | F   | [1.2242,1.2295,1.2367] |
+| 12    | 1.228    | 1.747  | .053       | -O2  | None            | None            | F   | [1.2243,1.2307,1.2289] |
+| 13    | .632     | 3.398  | .033       | -O0  | None            | native          | F   | [0.6098,0.6320,0.6354] |
+| 14    | .631     | 3.402  | .033       | -O0  | family          | None            | F   | [0.6057,0.6312,0.6358] |
+| 15    | .631     | 3.403  | .034       | -O0  | family          | native          | F   | [0.6121,0.6310,0.6412] |
+| 16    | .630     | 3.405  | .034       | -O0  | native          | native          | F   | [0.6057,0.6307,0.6370] |
+| 17    | .629     | 3.410  | .034       | -O0  | native          | None            | F   | [0.6107,0.6297,0.6404] |
+
+=== Key Insights ===
+
+**Medium Matrix (1024x1024) Performance:**
+-- Best: 90.0% performance **gain** over baseline using -O3, -march native, -mtune native, extra flags None
+-- Worst: 90.0% performance **gain** over baseline using -O2, -march None, -mtune None, extra flags None
+```
 
 ## Advanced Flags
 

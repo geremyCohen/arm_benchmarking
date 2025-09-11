@@ -1,5 +1,18 @@
 
-## Overview
+
+# CPU Instruction Set Features
+
+CPU instruction set features are specialized hardware capabilities that extend the base ARM architecture with additional instructions for specific workloads. These features enable significant performance improvements by providing hardware acceleration for common operations like vector math, atomic operations, and cryptography.
+
+The tutorial automatically detects which instruction set features are available on your Neoverse processor and enables corresponding optimization modules. Understanding these features helps you choose the most effective optimization strategies for your specific hardware.
+
+| Processor | Key Features | Typical Use Cases | Cloud Availability |
+|-----------|--------------|-------------------|-------------------|
+| **Neoverse N1** | NEON, LSE atomics, crypto extensions | Web servers, databases, general compute | **AWS**: Graviton2 (M6g, C6g, R6g, T4g)<br>**Azure**: Ampere Altra (Dpsv5, Dplsv5, Epsv5) and Altra Max (Dpsv6, Dplsv6, Epsv6)<br>**GCP**: Tau T2A instances |
+| **Neoverse N2** | NEON, SVE2, LSE atomics, improved crypto | HPC, ML inference, high-performance databases | Not yet commercially available in major cloud offerings |
+| **Neoverse V1** | NEON, SVE, wide execution, large caches | Scientific computing, simulation, AI training | **AWS**: Graviton3 (M7g, C7g, R7g, Hpc7g) |
+| **Neoverse V2** | NEON, SVE2, enhanced matrix operations | AI/ML workloads, scientific computing | **AWS**: Graviton4 (M8g, C8g, R8g - newer releases) |
+
 
 SIMD (Single Instruction, Multiple Data) optimizations can provide dramatic performance improvements for compute-intensive workloads. On Neoverse processors, you have access to NEON (128-bit) and SVE/SVE2 (128-2048 bit scalable) vector instructions.
 
