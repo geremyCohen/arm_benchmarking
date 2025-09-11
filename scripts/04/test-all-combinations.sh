@@ -899,7 +899,9 @@ for target_size in "${sizes[@]}"; do
                 if [[ "$extra_flags" == *"funroll-loops"* ]]; then gcc_cmd="$gcc_cmd -funroll-loops"; fi
                 if [[ "$extra_flags" == *"PGO"* ]]; then gcc_cmd="$gcc_cmd -fprofile-generate/-fprofile-use"; fi
                 gcc_cmd="$gcc_cmd -Wall -o [binary] src/optimized_matrix.c -lm"
-                printf "|       | %-100s |\n" "Command: $gcc_cmd"
+                printf "|-------|----------|--------|------------|------|-----------------|----------------|-----|-----------------|\n"
+                printf "|       | Command: %-88s |\n" "$gcc_cmd"
+                printf "|-------|----------|--------|------------|------|-----------------|----------------|-----|-----------------|\n"
             fi
             
             ((rank++))
