@@ -62,7 +62,7 @@ display_status() {
         case $arch in
             "generic") arch_display="None" ;;
             "native") arch_display="Autodetect" ;;
-            "neoverse") arch_display="V2" ;;
+            "neoverse") arch_display="family" ;;
             *) arch_display="$arch" ;;
         esac
         

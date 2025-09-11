@@ -908,7 +908,7 @@ for target_size in "${sizes[@]}"; do
             case $mtune in
                 "none") mtune_flag="None" ;;
                 "native") mtune_flag="native" ;;
-                "family") mtune_flag="V2" ;;
+                "family") mtune_flag="family" ;;
             esac
             
             # Detect PGO usage
@@ -976,7 +976,7 @@ get_arch_name() {
     case $1 in
         "none") echo "None" ;;
         "native") echo "native" ;;
-        "family") echo "V2" ;;
+        "family") echo "family" ;;
         *) echo "$1" ;;
     esac
 }
