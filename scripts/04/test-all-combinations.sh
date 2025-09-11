@@ -931,6 +931,27 @@ for target_size in "${sizes[@]}"; do
             else
                 printf "| %-5d | %-8s | %-6s | %-10s | %-4s | %-15s | %-15s | %-3s | %-15s |\n" "$rank" "$gflops" "$time" "$compile_time" "-$opt" "$march_flag" "$mtune_flag" "$pgo_display" "$runs_detail"
             fi
+            
+            # Show GCC command line if verbose
+            if [ "$verbose" = true ]; then
+                # Reconstruct the GCC command
+                gcc_cmd="gcc -$opt"
+                case $march in
+                    "native") gcc_cmd="$gcc_cmd -march=native" ;;
+                    "family") gcc_cmd="$gcc_cmd -march=$MARCH_SPECIFIC" ;;
+                esac
+                case $mtune in
+                    "native") gcc_cmd="$gcc_cmd -mtune=native" ;;
+                    "family") gcc_cmd="$gcc_cmd -mtune=$MTUNE_SPECIFIC" ;;
+                esac
+                if [[ "$extra_flags" == *"flto"* ]]; then gcc_cmd="$gcc_cmd -flto"; fi
+                if [[ "$extra_flags" == *"fomit-frame-pointer"* ]]; then gcc_cmd="$gcc_cmd -fomit-frame-pointer"; fi
+                if [[ "$extra_flags" == *"funroll-loops"* ]]; then gcc_cmd="$gcc_cmd -funroll-loops"; fi
+                if [[ "$extra_flags" == *"PGO"* ]]; then gcc_cmd="$gcc_cmd -fprofile-generate/-fprofile-use"; fi
+                gcc_cmd="$gcc_cmd -Wall -o [binary] src/optimized_matrix.c -lm"
+                echo "    Command: $gcc_cmd"
+            fi
+            
             ((rank++))
         fi
     done
