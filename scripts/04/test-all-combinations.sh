@@ -115,9 +115,9 @@ echo "Runs: $num_runs"
 echo "Optimization levels: $opt_levels_arg"
 if [ "$use_arch_flags" = true ]; then
     echo "Architecture flags: Enabled"
-    echo "  -march None: (no -march flag)"
-    echo "  -march native: -march=native"
-    echo "  -march family: -march=$MARCH_SPECIFIC -mtune=$MTUNE_SPECIFIC"
+    echo "  when -march None is tested: (no flags) is literally passed to the compiler."
+    echo "  when -march native is tested: \"-march=native\" is literally passed to the compiler."
+    echo "  when -march family is tested: \"-march=$MARCH_SPECIFIC -mtune=$MTUNE_SPECIFIC\" is literally passed to the compiler."
 else
     echo "Architecture flags: Disabled"
 fi
