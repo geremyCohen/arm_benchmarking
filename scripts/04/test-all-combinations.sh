@@ -302,7 +302,7 @@ else
     fi
     
     if [ "$use_arch_flags" = true ]; then
-        march_options=("none" "native")
+        march_options=("none" "native" "neoverse")
         mtune_options=("none" "native")
     else
         march_options=("none")
@@ -902,7 +902,7 @@ for target_size in "${sizes[@]}"; do
             case $march in
                 "none") march_flag="None" ;;
                 "native") march_flag="native" ;;
-                "neoverse") march_flag="V2" ;;
+                "neoverse") march_flag="neoverse" ;;
             esac
             
             case $mtune in
