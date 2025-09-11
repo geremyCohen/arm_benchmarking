@@ -494,24 +494,14 @@ for size in "${sizes[@]}"; do
                                                 mkdir -p "$pgo_workspace"
                                                 pgo_base="pgo_${combo_id}_${run}"
                                                 
-                                                if [ "$verbose" = true ]; then
-                                                    echo "gcc $flags -fprofile-generate -Wall -o $pgo_workspace/${pgo_base}_gen src/optimized_matrix.c -lm"
-                                                    gcc $flags -fprofile-generate -Wall -o $pgo_workspace/${pgo_base}_gen src/optimized_matrix.c -lm
-                                                else
-                                                    gcc $flags -fprofile-generate -Wall -o $pgo_workspace/${pgo_base}_gen src/optimized_matrix.c -lm 2>/dev/null
-                                                fi
+                                                gcc $flags -fprofile-generate -Wall -o $pgo_workspace/${pgo_base}_gen src/optimized_matrix.c -lm 2>/dev/null
                                                 compile1_end=$(date +%s.%N)
                                                 compile1_time=$(echo "scale=3; $compile1_end - $compile1_start" | bc -l)
                                                 
                                                 if [ $? -eq 0 ] && [ -x "$pgo_workspace/${pgo_base}_gen" ]; then
                                                     # Run profile generation in isolated workspace
                                                     profile_start=$(date +%s.%N)
-                                                    if [ "$verbose" = true ]; then
-                                                        echo "cd $pgo_workspace && ./${pgo_base}_gen $size"
-                                                        (cd $pgo_workspace && ./${pgo_base}_gen $size >/dev/null)
-                                                    else
-                                                        (cd $pgo_workspace && ./${pgo_base}_gen $size >/dev/null 2>&1)
-                                                    fi
+                                                    (cd $pgo_workspace && ./${pgo_base}_gen $size >/dev/null 2>&1)
                                                     profile_end=$(date +%s.%N)
                                                     profile_time=$(echo "scale=3; $profile_end - $profile_start" | bc -l)
                                                     
@@ -528,20 +518,10 @@ for size in "${sizes[@]}"; do
                                                         # Compile with profile data in workspace
                                                         compile2_start=$(date +%s.%N)
                                                         src_path="$(pwd)/src/optimized_matrix.c"
-                                                        if [ "$verbose" = true ]; then
-                                                            echo "cd $pgo_workspace && gcc $flags -fprofile-use -Wno-coverage-mismatch -Wall -o ${pgo_base} $src_path -lm"
-                                                            compile_output=$(cd $pgo_workspace && gcc $flags -fprofile-use -Wno-coverage-mismatch -Wall -o ${pgo_base} "$src_path" -lm 2>&1)
-                                                            echo "$compile_output"
-                                                            if echo "$compile_output" | grep -q "missing-profile"; then
-                                                                echo "ERROR: PGO profile data not found despite .gcda files existing. PGO is not working correctly."
-                                                                exit 1
-                                                            fi
-                                                        else
-                                                            compile_output=$(cd $pgo_workspace && gcc $flags -fprofile-use -Wno-coverage-mismatch -Wall -o ${pgo_base} "$src_path" -lm 2>&1)
-                                                            if echo "$compile_output" | grep -q "missing-profile"; then
-                                                                echo "ERROR: PGO profile data not found. PGO is not working correctly."
-                                                                exit 1
-                                                            fi
+                                                        compile_output=$(cd $pgo_workspace && gcc $flags -fprofile-use -Wno-coverage-mismatch -Wall -o ${pgo_base} "$src_path" -lm 2>&1)
+                                                        if echo "$compile_output" | grep -q "missing-profile"; then
+                                                            echo "ERROR: PGO profile data not found. PGO is not working correctly."
+                                                            exit 1
                                                         fi
                                                         compile2_end=$(date +%s.%N)
                                                         compile2_time=$(echo "scale=3; $compile2_end - $compile2_start" | bc -l)
@@ -574,12 +554,7 @@ for size in "${sizes[@]}"; do
                                             else
                                                 # Standard compilation
                                                 compile_start=$(date +%s.%N)
-                                                if [ "$verbose" = true ]; then
-                                                    echo "gcc $flags -Wall -o $exe_name src/optimized_matrix.c -lm"
-                                                    gcc $flags -Wall -o $exe_name src/optimized_matrix.c -lm
-                                                else
-                                                    gcc $flags -Wall -o $exe_name src/optimized_matrix.c -lm 2>/dev/null
-                                                fi
+                                                gcc $flags -Wall -o $exe_name src/optimized_matrix.c -lm 2>/dev/null
                                                 compile_end=$(date +%s.%N)
                                                 run_compile_time=$(echo "scale=3; $compile_end - $compile_start" | bc -l)
                                                 
@@ -668,24 +643,14 @@ for size in "${sizes[@]}"; do
                                     mkdir -p "$pgo_workspace"
                                     pgo_base="pgo_${combo_id}_${run}"
                                     
-                                    if [ "$verbose" = true ]; then
-                                        echo "gcc $flags -fprofile-generate -Wall -o $pgo_workspace/${pgo_base}_gen src/optimized_matrix.c -lm"
-                                        gcc $flags -fprofile-generate -Wall -o $pgo_workspace/${pgo_base}_gen src/optimized_matrix.c -lm
-                                    else
-                                        gcc $flags -fprofile-generate -Wall -o $pgo_workspace/${pgo_base}_gen src/optimized_matrix.c -lm 2>/dev/null
-                                    fi
+                                    gcc $flags -fprofile-generate -Wall -o $pgo_workspace/${pgo_base}_gen src/optimized_matrix.c -lm 2>/dev/null
                                     compile1_end=$(date +%s.%N)
                                     compile1_time=$(echo "scale=3; $compile1_end - $compile1_start" | bc -l)
                                     
                                     if [ $? -eq 0 ] && [ -x "$pgo_workspace/${pgo_base}_gen" ]; then
                                         # Run profile generation in isolated workspace
                                         profile_start=$(date +%s.%N)
-                                        if [ "$verbose" = true ]; then
-                                            echo "cd $pgo_workspace && ./${pgo_base}_gen $size"
-                                            (cd $pgo_workspace && ./${pgo_base}_gen $size >/dev/null)
-                                        else
-                                            (cd $pgo_workspace && ./${pgo_base}_gen $size >/dev/null 2>&1)
-                                        fi
+                                        (cd $pgo_workspace && ./${pgo_base}_gen $size >/dev/null 2>&1)
                                         profile_end=$(date +%s.%N)
                                         profile_time=$(echo "scale=3; $profile_end - $profile_start" | bc -l)
                                         
@@ -702,20 +667,10 @@ for size in "${sizes[@]}"; do
                                             # Compile with profile data in workspace
                                             compile2_start=$(date +%s.%N)
                                             src_path="$(pwd)/src/optimized_matrix.c"
-                                            if [ "$verbose" = true ]; then
-                                                echo "cd $pgo_workspace && gcc $flags -fprofile-use -Wno-coverage-mismatch -Wall -o ${pgo_base} $src_path -lm"
-                                                compile_output=$(cd $pgo_workspace && gcc $flags -fprofile-use -Wno-coverage-mismatch -Wall -o ${pgo_base} "$src_path" -lm 2>&1)
-                                                echo "$compile_output"
-                                                if echo "$compile_output" | grep -q "missing-profile"; then
-                                                    echo "ERROR: PGO profile data not found despite .gcda files existing. PGO is not working correctly."
-                                                    exit 1
-                                                fi
-                                            else
-                                                compile_output=$(cd $pgo_workspace && gcc $flags -fprofile-use -Wno-coverage-mismatch -Wall -o ${pgo_base} "$src_path" -lm 2>&1)
-                                                if echo "$compile_output" | grep -q "missing-profile"; then
-                                                    echo "ERROR: PGO profile data not found. PGO is not working correctly."
-                                                    exit 1
-                                                fi
+                                            compile_output=$(cd $pgo_workspace && gcc $flags -fprofile-use -Wno-coverage-mismatch -Wall -o ${pgo_base} "$src_path" -lm 2>&1)
+                                            if echo "$compile_output" | grep -q "missing-profile"; then
+                                                echo "ERROR: PGO profile data not found. PGO is not working correctly."
+                                                exit 1
                                             fi
                                             compile2_end=$(date +%s.%N)
                                             compile2_time=$(echo "scale=3; $compile2_end - $compile2_start" | bc -l)
@@ -748,11 +703,7 @@ for size in "${sizes[@]}"; do
                                 else
                                     # Standard compilation
                                     compile_start=$(date +%s.%N)
-                                    if [ "$verbose" = true ]; then
-                                        echo "gcc $flags -Wall -o $exe_name src/optimized_matrix.c -lm"
-                                        gcc $flags -Wall -o $exe_name src/optimized_matrix.c -lm
-                                    else
-                                        gcc $flags -Wall -o $exe_name src/optimized_matrix.c -lm 2>/dev/null
+                                    gcc $flags -Wall -o $exe_name src/optimized_matrix.c -lm 2>/dev/null
                                     fi
                                     compile_end=$(date +%s.%N)
                                     run_compile_time=$(echo "scale=3; $compile_end - $compile_start" | bc -l)
@@ -949,7 +900,7 @@ for target_size in "${sizes[@]}"; do
                 if [[ "$extra_flags" == *"funroll-loops"* ]]; then gcc_cmd="$gcc_cmd -funroll-loops"; fi
                 if [[ "$extra_flags" == *"PGO"* ]]; then gcc_cmd="$gcc_cmd -fprofile-generate/-fprofile-use"; fi
                 gcc_cmd="$gcc_cmd -Wall -o [binary] src/optimized_matrix.c -lm"
-                echo "    Command: $gcc_cmd"
+                printf "|       | %-100s |\n" "Command: $gcc_cmd"
             fi
             
             ((rank++))
