@@ -207,7 +207,10 @@ echo "Detected: $NEOVERSE_TYPE"
 if [ "$use_arch_flags" = true ]; then
     echo "  when -march None is tested: (no flags) is literally passed to the compiler."
     echo "  when -march native is tested: \"-march=native\" is literally passed to the compiler."
-    echo "  when -march family is tested: \"-march=$MARCH_SPECIFIC -mtune=$MTUNE_SPECIFIC\" is literally passed to the compiler."
+    echo "  when -march family is tested: \"-march=$MARCH_SPECIFIC\" is literally passed to the compiler."
+    echo "  when -mtune native is tested: \"-mtune=native\" is literally passed to the compiler."
+    echo "  when -mtune family is tested: \"-mtune=$MTUNE_SPECIFIC\" is literally passed to the compiler."
+    echo "  Note: All combinations of march (none/native/family) and mtune (none/native) are tested."
 fi
 
 # Detect what native would resolve to
