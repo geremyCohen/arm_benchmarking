@@ -704,7 +704,6 @@ for size in "${sizes[@]}"; do
                                     # Standard compilation
                                     compile_start=$(date +%s.%N)
                                     gcc $flags -Wall -o $exe_name src/optimized_matrix.c -lm 2>/dev/null
-                                    fi
                                     compile_end=$(date +%s.%N)
                                     run_compile_time=$(echo "scale=3; $compile_end - $compile_start" | bc -l)
                                     
