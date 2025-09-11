@@ -117,7 +117,7 @@ if [ "$use_arch_flags" = true ]; then
     echo "Architecture flags: Enabled"
     echo "  -march None: (no -march flag)"
     echo "  -march native: -march=native"
-    echo "  -march family: -march=$MARCH_SPECIFIC"
+    echo "  -march family: -march=$MARCH_SPECIFIC -mtune=$MTUNE_SPECIFIC"
 else
     echo "Architecture flags: Disabled"
 fi
