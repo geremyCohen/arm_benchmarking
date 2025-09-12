@@ -199,8 +199,19 @@ The -mtune flag tunes the compiler for a specific processor family, with backwar
 The -march flag enables specific instruction set features of the processor.  This can provide significant performance improvements, but may break compatibility with older ARM CPUs that do not support those features.  There are three ways to implement this flag as well:
 
 - **`-march=none`**: Only the most general instruction architectural features are enabled. This is the default if no -march flag is provided as well.
-- **`-march=family`**: Compiler-defined optimizations for a specific Neoverse family (N1, N2, V1, V2).  More generic than native, but more comprehensive than none.
 - **`-march=native`**: When you ask for native, under-the-hood GCC queries the CPU hardware for the most up-to-date features sets included in the processor.
+- **`-march=custom`**: Let's you cherry-pick the flags available via native.
+
+To see which flags are available on your system if you were to pass a custom set of flags, run:
+
+```bash
+gcc -march=native -dM -E - < /dev/null | grep __ARM_FEATURE | sort > native.txt
+```
+You can then cross reference them with the official ARM architecture extensions list here to derive the actual -march flags you can use:
+
+https://github.com/gcc-mirror/gcc/blob/master/gcc/config/aarch64/aarch64-option-extensions.def
+
+TODO: provide this as a script
 
 
 
