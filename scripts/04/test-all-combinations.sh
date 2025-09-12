@@ -697,6 +697,14 @@ for size in "${sizes[@]}"; do
                                             
                                             # Phase 3: Validate profile data
                                             if [ $profile_status -eq 0 ] && validate_pgo_profile "$pgo_workspace"; then
+                                                # Copy profile data to match expected naming for profile-use compilation
+                                                for gcda_file in "$pgo_workspace"/*.gcda; do
+                                                    if [ -f "$gcda_file" ]; then
+                                                        cp "$gcda_file" "$pgo_workspace/${pgo_base}-optimized_matrix.gcda" 2>/dev/null || true
+                                                        break
+                                                    fi
+                                                done
+                                                
                                                 # Phase 4: Compile with profile data
                                                 compile2_start=$(date +%s.%N)
                                                 src_path="$(pwd)/src/optimized_matrix.c"
