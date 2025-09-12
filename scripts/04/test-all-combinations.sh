@@ -393,10 +393,9 @@ if [ $MAX_JOBS -lt 1 ]; then
     MAX_JOBS=1
 fi
 
-# For PGO, reduce parallelism to avoid file conflicts
+# PGO now supports full parallelism with proper locking
 if [ "$use_pgo" = true ]; then
-    MAX_JOBS=2
-    echo "Running tests with reduced parallelism (MAX_JOBS=2) for PGO stability..."
+    echo "PGO: Enhanced with proper locking - using full parallelism (MAX_JOBS=$MAX_JOBS)"
 else
     echo "Running tests with maximum $MAX_JOBS parallel jobs..."
 fi
