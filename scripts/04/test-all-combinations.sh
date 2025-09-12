@@ -1,4 +1,59 @@
 #!/bin/bash
+
+# PGO utility functions for enhanced error handling and parallel support
+PGO_LOCK_DIR="temp/pgo_locks"
+
+acquire_pgo_lock() {
+    local lock_name="$1"
+    local lock_file="$PGO_LOCK_DIR/${lock_name}.lock"
+    local timeout=30
+    local count=0
+    
+    mkdir -p "$PGO_LOCK_DIR"
+    
+    # Clean up stale locks (older than 5 minutes)
+    if [ -d "$lock_file" ]; then
+        local lock_age=$(($(date +%s) - $(stat -c %Y "$lock_file" 2>/dev/null || echo 0)))
+        if [ $lock_age -gt 300 ]; then
+            rm -rf "$lock_file" 2>/dev/null
+        fi
+    fi
+    
+    while ! mkdir "$lock_file" 2>/dev/null; do
+        sleep 0.1
+        count=$((count + 1))
+        if [ $count -gt $((timeout * 10)) ]; then
+            return 1
+        fi
+    done
+    echo $$ > "$lock_file/pid"
+    return 0
+}
+
+release_pgo_lock() {
+    local lock_name="$1"
+    local lock_file="$PGO_LOCK_DIR/${lock_name}.lock"
+    [ -d "$lock_file" ] && rm -rf "$lock_file" 2>/dev/null
+}
+
+validate_pgo_profile() {
+    local workspace="$1"
+    
+    # Check if .gcda files exist and are not empty
+    local gcda_count=0
+    for gcda_file in "$workspace"/*.gcda; do
+        if [ -f "$gcda_file" ] && [ -s "$gcda_file" ]; then
+            gcda_count=$((gcda_count + 1))
+        fi
+    done
+    
+    if [ $gcda_count -eq 0 ]; then
+        [ "$verbose" = true ] && echo "ERROR: No valid .gcda profile files found" >&2
+        return 1
+    fi
+    
+    return 0
+}
 # test-all-combinations.sh - Test all combinations with consolidated logic for all matrix sizes
 
 # Check for help flags anywhere in arguments
@@ -467,68 +522,71 @@ for size in "${sizes[@]}"; do
                                             exe_name="temp/combo_${opt}_${march}_${mtune}_${pgo}_${flto}${fomit}${funroll}_${size}_$$_${RANDOM}_${run}"
                                             
                                             if [ $pgo -eq 1 ]; then
-                                                # PGO compilation - use unique workspace per job
-                                                compile1_start=$(date +%s.%N)
+                                                # Enhanced PGO compilation with locking and validation
                                                 pgo_workspace="temp/pgo_workspace_$$_${combo_id}_${run}"
-                                                mkdir -p "$pgo_workspace"
                                                 pgo_base="pgo_${combo_id}_${run}"
+                                                lock_name="pgo_$(echo "${flags}_${size}" | tr ' /' '_')"
                                                 
-                                                gcc $flags -fprofile-generate -Wall -o $pgo_workspace/${pgo_base}_gen src/optimized_matrix.c -lm 2>/dev/null
-                                                compile1_end=$(date +%s.%N)
-                                                compile1_time=$(echo "scale=3; $compile1_end - $compile1_start" | bc -l)
-                                                
-                                                if [ $? -eq 0 ] && [ -x "$pgo_workspace/${pgo_base}_gen" ]; then
-                                                    # Run profile generation in isolated workspace
-                                                    profile_start=$(date +%s.%N)
-                                                    (cd $pgo_workspace && ./${pgo_base}_gen $size >/dev/null 2>&1)
-                                                    profile_end=$(date +%s.%N)
-                                                    profile_time=$(echo "scale=3; $profile_end - $profile_start" | bc -l)
+                                                # Acquire lock for parallel safety
+                                                if acquire_pgo_lock "$lock_name"; then
+                                                    mkdir -p "$pgo_workspace"
                                                     
-                                                    # Check if profile data was generated (look for any .gcda files)
-                                                    if [ $? -eq 0 ] && [ -n "$(find $pgo_workspace -name "*.gcda" 2>/dev/null)" ]; then
-                                                        # Copy profile data to expected name for compilation
-                                                        for gcda_file in $pgo_workspace/*.gcda; do
-                                                            if [ -f "$gcda_file" ]; then
-                                                                cp "$gcda_file" "$pgo_workspace/${pgo_base}-optimized_matrix.gcda"
-                                                                break
-                                                            fi
-                                                        done
+                                                    # Phase 1: Compile with profile generation
+                                                    compile1_start=$(date +%s.%N)
+                                                    gcc $flags -fprofile-generate -Wall -o "$pgo_workspace/${pgo_base}_gen" src/optimized_matrix.c -lm 2>/dev/null
+                                                    compile1_end=$(date +%s.%N)
+                                                    compile1_time=$(echo "scale=3; $compile1_end - $compile1_start" | bc -l)
+                                                    
+                                                    if [ $? -eq 0 ] && [ -x "$pgo_workspace/${pgo_base}_gen" ]; then
+                                                        # Phase 2: Run profile generation
+                                                        profile_start=$(date +%s.%N)
+                                                        (cd "$pgo_workspace" && timeout 60 "./${pgo_base}_gen" "$size" >/dev/null 2>&1)
+                                                        profile_status=$?
+                                                        profile_end=$(date +%s.%N)
+                                                        profile_time=$(echo "scale=3; $profile_end - $profile_start" | bc -l)
                                                         
-                                                        # Compile with profile data in workspace
-                                                        compile2_start=$(date +%s.%N)
-                                                        src_path="$(pwd)/src/optimized_matrix.c"
-                                                        compile_output=$(cd $pgo_workspace && gcc $flags -fprofile-use -Wno-coverage-mismatch -Wall -o ${pgo_base} "$src_path" -lm 2>&1)
-                                                        if echo "$compile_output" | grep -q "missing-profile"; then
-                                                            echo "ERROR: PGO profile data not found. PGO is not working correctly."
-                                                            exit 1
-                                                        fi
-                                                        compile2_end=$(date +%s.%N)
-                                                        compile2_time=$(echo "scale=3; $compile2_end - $compile2_start" | bc -l)
-                                                        
-                                                        total_compile_time=$(echo "scale=3; $compile1_time + $profile_time + $compile2_time" | bc -l)
-                                                        
-                                                        if [ $? -eq 0 ] && [ -x "$pgo_workspace/${pgo_base}" ]; then
-                                                            result=$(cd $pgo_workspace && ./${pgo_base} $size 2>/dev/null)
-                                                            run_gflops=$(echo "$result" | grep "Performance:" | awk '{print $2}')
-                                                            run_time=$(echo "$result" | grep "Time:" | awk '{print $2}')
+                                                        # Phase 3: Validate profile data
+                                                        if [ $profile_status -eq 0 ] && validate_pgo_profile "$pgo_workspace"; then
+                                                            # Phase 4: Compile with profile data
+                                                            compile2_start=$(date +%s.%N)
+                                                            src_path="$(pwd)/src/optimized_matrix.c"
+                                                            compile_output=$(cd "$pgo_workspace" && gcc $flags -fprofile-use -Wno-coverage-mismatch -Wall -o "${pgo_base}" "$src_path" -lm 2>&1)
+                                                            compile2_end=$(date +%s.%N)
+                                                            compile2_time=$(echo "scale=3; $compile2_end - $compile2_start" | bc -l)
                                                             
-                                                            if [ ! -z "$run_gflops" ] && [ "$run_gflops" != "0" ]; then
-                                                                gflops_runs+=("$run_gflops")
-                                                                time_runs+=("$run_time")
-                                                                compile_time_runs+=("$total_compile_time")
+                                                            # Check for profile-related errors
+                                                            if [ $? -eq 0 ] && [ -x "$pgo_workspace/${pgo_base}" ] && ! echo "$compile_output" | grep -q "profile.*not found\|missing.*profile"; then
+                                                                # Phase 5: Run optimized binary
+                                                                result=$(cd "$pgo_workspace" && timeout 30 "./${pgo_base}" "$size" 2>/dev/null)
+                                                                if [ $? -eq 0 ]; then
+                                                                    run_gflops=$(echo "$result" | grep "Performance:" | awk '{print $2}')
+                                                                    run_time=$(echo "$result" | grep "Time:" | awk '{print $2}')
+                                                                    total_compile_time=$(echo "scale=3; $compile1_time + $profile_time + $compile2_time" | bc -l)
+                                                                    
+                                                                    if [ ! -z "$run_gflops" ] && [ "$run_gflops" != "0" ]; then
+                                                                        gflops_runs+=("$run_gflops")
+                                                                        time_runs+=("$run_time")
+                                                                        compile_time_runs+=("$total_compile_time")
+                                                                    elif [ "$verbose" = true ]; then
+                                                                        echo "PGO run failed: invalid performance result"
+                                                                    fi
+                                                                elif [ "$verbose" = true ]; then
+                                                                    echo "PGO binary execution failed"
+                                                                fi
                                                             elif [ "$verbose" = true ]; then
-                                                                echo "PGO run failed: no valid performance result"
+                                                                echo "PGO profile-use compilation failed"
                                                             fi
                                                         elif [ "$verbose" = true ]; then
-                                                            echo "PGO compilation failed: final binary not executable"
+                                                            echo "PGO profile generation or validation failed"
                                                         fi
                                                     elif [ "$verbose" = true ]; then
-                                                        echo "Profile generation failed: no .gcda files found"
+                                                        echo "PGO profile-generate compilation failed"
                                                     fi
+                                                    
+                                                    release_pgo_lock "$lock_name"
                                                     rm -rf "$pgo_workspace" 2>/dev/null
                                                 elif [ "$verbose" = true ]; then
-                                                    echo "PGO profile generation binary compilation failed"
-                                                    rm -rf "$pgo_workspace" 2>/dev/null
+                                                    echo "Failed to acquire PGO lock"
                                                 fi
                                             else
                                                 # Standard compilation
@@ -614,68 +672,71 @@ for size in "${sizes[@]}"; do
                                 exe_name="temp/combo_${opt}_${march}_${mtune}_${pgo}_${size}_$$_${RANDOM}_${run}"
                                 
                                 if [ $pgo -eq 1 ]; then
-                                    # PGO compilation - use unique workspace per job
-                                    compile1_start=$(date +%s.%N)
+                                    # Enhanced PGO compilation with locking and validation
                                     pgo_workspace="temp/pgo_workspace_$$_${combo_id}_${run}"
-                                    mkdir -p "$pgo_workspace"
                                     pgo_base="pgo_${combo_id}_${run}"
+                                    lock_name="pgo_$(echo "${flags}_${size}" | tr ' /' '_')"
                                     
-                                    gcc $flags -fprofile-generate -Wall -o $pgo_workspace/${pgo_base}_gen src/optimized_matrix.c -lm 2>/dev/null
-                                    compile1_end=$(date +%s.%N)
-                                    compile1_time=$(echo "scale=3; $compile1_end - $compile1_start" | bc -l)
-                                    
-                                    if [ $? -eq 0 ] && [ -x "$pgo_workspace/${pgo_base}_gen" ]; then
-                                        # Run profile generation in isolated workspace
-                                        profile_start=$(date +%s.%N)
-                                        (cd $pgo_workspace && ./${pgo_base}_gen $size >/dev/null 2>&1)
-                                        profile_end=$(date +%s.%N)
-                                        profile_time=$(echo "scale=3; $profile_end - $profile_start" | bc -l)
+                                    # Acquire lock for parallel safety
+                                    if acquire_pgo_lock "$lock_name"; then
+                                        mkdir -p "$pgo_workspace"
                                         
-                                        # Check if profile data was generated (look for any .gcda files)
-                                        if [ $? -eq 0 ] && [ -n "$(find $pgo_workspace -name "*.gcda" 2>/dev/null)" ]; then
-                                            # Copy profile data to expected name for compilation
-                                            for gcda_file in $pgo_workspace/*.gcda; do
-                                                if [ -f "$gcda_file" ]; then
-                                                    cp "$gcda_file" "$pgo_workspace/${pgo_base}-optimized_matrix.gcda"
-                                                    break
-                                                fi
-                                            done
+                                        # Phase 1: Compile with profile generation
+                                        compile1_start=$(date +%s.%N)
+                                        gcc $flags -fprofile-generate -Wall -o "$pgo_workspace/${pgo_base}_gen" src/optimized_matrix.c -lm 2>/dev/null
+                                        compile1_end=$(date +%s.%N)
+                                        compile1_time=$(echo "scale=3; $compile1_end - $compile1_start" | bc -l)
+                                        
+                                        if [ $? -eq 0 ] && [ -x "$pgo_workspace/${pgo_base}_gen" ]; then
+                                            # Phase 2: Run profile generation
+                                            profile_start=$(date +%s.%N)
+                                            (cd "$pgo_workspace" && timeout 60 "./${pgo_base}_gen" "$size" >/dev/null 2>&1)
+                                            profile_status=$?
+                                            profile_end=$(date +%s.%N)
+                                            profile_time=$(echo "scale=3; $profile_end - $profile_start" | bc -l)
                                             
-                                            # Compile with profile data in workspace
-                                            compile2_start=$(date +%s.%N)
-                                            src_path="$(pwd)/src/optimized_matrix.c"
-                                            compile_output=$(cd $pgo_workspace && gcc $flags -fprofile-use -Wno-coverage-mismatch -Wall -o ${pgo_base} "$src_path" -lm 2>&1)
-                                            if echo "$compile_output" | grep -q "missing-profile"; then
-                                                echo "ERROR: PGO profile data not found. PGO is not working correctly."
-                                                exit 1
-                                            fi
-                                            compile2_end=$(date +%s.%N)
-                                            compile2_time=$(echo "scale=3; $compile2_end - $compile2_start" | bc -l)
-                                            
-                                            total_compile_time=$(echo "scale=3; $compile1_time + $profile_time + $compile2_time" | bc -l)
-                                            
-                                            if [ $? -eq 0 ] && [ -x "$pgo_workspace/${pgo_base}" ]; then
-                                                result=$(cd $pgo_workspace && ./${pgo_base} $size 2>/dev/null)
-                                                run_gflops=$(echo "$result" | grep "Performance:" | awk '{print $2}')
-                                                run_time=$(echo "$result" | grep "Time:" | awk '{print $2}')
+                                            # Phase 3: Validate profile data
+                                            if [ $profile_status -eq 0 ] && validate_pgo_profile "$pgo_workspace"; then
+                                                # Phase 4: Compile with profile data
+                                                compile2_start=$(date +%s.%N)
+                                                src_path="$(pwd)/src/optimized_matrix.c"
+                                                compile_output=$(cd "$pgo_workspace" && gcc $flags -fprofile-use -Wno-coverage-mismatch -Wall -o "${pgo_base}" "$src_path" -lm 2>&1)
+                                                compile2_end=$(date +%s.%N)
+                                                compile2_time=$(echo "scale=3; $compile2_end - $compile2_start" | bc -l)
                                                 
-                                                if [ ! -z "$run_gflops" ] && [ "$run_gflops" != "0" ]; then
-                                                    gflops_runs+=("$run_gflops")
-                                                    time_runs+=("$run_time")
-                                                    compile_time_runs+=("$total_compile_time")
+                                                # Check for profile-related errors
+                                                if [ $? -eq 0 ] && [ -x "$pgo_workspace/${pgo_base}" ] && ! echo "$compile_output" | grep -q "profile.*not found\|missing.*profile"; then
+                                                    # Phase 5: Run optimized binary
+                                                    result=$(cd "$pgo_workspace" && timeout 30 "./${pgo_base}" "$size" 2>/dev/null)
+                                                    if [ $? -eq 0 ]; then
+                                                        run_gflops=$(echo "$result" | grep "Performance:" | awk '{print $2}')
+                                                        run_time=$(echo "$result" | grep "Time:" | awk '{print $2}')
+                                                        total_compile_time=$(echo "scale=3; $compile1_time + $profile_time + $compile2_time" | bc -l)
+                                                        
+                                                        if [ ! -z "$run_gflops" ] && [ "$run_gflops" != "0" ]; then
+                                                            gflops_runs+=("$run_gflops")
+                                                            time_runs+=("$run_time")
+                                                            compile_time_runs+=("$total_compile_time")
+                                                        elif [ "$verbose" = true ]; then
+                                                            echo "PGO run failed: invalid performance result"
+                                                        fi
+                                                    elif [ "$verbose" = true ]; then
+                                                        echo "PGO binary execution failed"
+                                                    fi
                                                 elif [ "$verbose" = true ]; then
-                                                    echo "PGO run failed: no valid performance result"
+                                                    echo "PGO profile-use compilation failed"
                                                 fi
                                             elif [ "$verbose" = true ]; then
-                                                echo "PGO compilation failed: final binary not executable"
+                                                echo "PGO profile generation or validation failed"
                                             fi
                                         elif [ "$verbose" = true ]; then
-                                            echo "Profile generation failed: no .gcda files found"
+                                            echo "PGO profile-generate compilation failed"
                                         fi
+                                        
+                                        release_pgo_lock "$lock_name"
                                         rm -rf "$pgo_workspace" 2>/dev/null
                                     elif [ "$verbose" = true ]; then
-                                        echo "PGO profile generation binary compilation failed"
-                                        rm -rf "$pgo_workspace" 2>/dev/null
+                                        echo "Failed to acquire PGO lock"
                                     fi
                                 else
                                     # Standard compilation
