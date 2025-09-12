@@ -199,7 +199,7 @@ The -mtune flag tunes the compiler for a specific processor family, with backwar
 The -march flag enables specific instruction set features of the processor.  This can provide significant performance improvements, but may break compatibility with older ARM CPUs that do not support those features.  There are three ways to implement this flag as well:
 
 - **`-march=none`**: Only the most general instruction architectural features are enabled. This is the default if no -march flag is provided as well.
-- **`-march=native`**: When you ask for native, under-the-hood GCC queries the CPU hardware for the most up-to-date features sets included in the processor.
+- **`-march=native`**: When you ask for native, under-the-hood GCC queries the CPU hardware for the most up-to-date features sets included in the processor and optimizes for them.
 - **`-march=custom`**: Let's you cherry-pick the flags available via native.
 
 To see which flags are available on your system if you were to pass a custom set of flags, run:
@@ -361,32 +361,13 @@ TODO: bug on best/worst calculation here
 
 You may think that always compiling with optimization level of -O3 and with Neoverse-specific flags will always provide the best results, but actual benchmark results may show a more nuanced picture.  For example, aggressive optimization may sometimes hurt performance, absence of compile options sometimes outperforms processor-specific ones, etc.
 
-### Optimization Strategy Recommendations
-
-
-## Advanced Compiler Optimizations
-
-### A
-### Optimization Levels
-
-```bash
-# Basic optimization - good balance of compile time and performance
-CFLAGS="-O2"
-
-# Aggressive optimization - maximum performance
-CFLAGS="-O3"
-
-# Size optimization - for memory-constrained environments
-CFLAGS="-Os"
-
-# Fast compilation with basic optimization
-CFLAGS="-O1"
-```
-
-
 ## Profile-Guided Optimization (PGO)
 
-PGO uses runtime profiling data to guide optimizations:
+Profile-Guided Optimization (PGO) is a compiler technique that uses real program execution data to make informed optimization decisions at compile time.  By tailoring the binary to perform optimally against actual runtime logic, PGO improves performance, reduces instruction-cache misses, and lowers branch mispredictions.
+ 
+
+To do this, the compiler first builds an instrumented binary that profiles how the program behaves during runtime.  The instrumented program is run, outputting profiling data, which is then fed back into a second compilation pass, enabling the compiler to optimize specifically for real-world execution scenarios. 
+
 
 # Step 4: Test optimized binary
 ./build/neoverse-tutorial --test=pgo --size=medium
