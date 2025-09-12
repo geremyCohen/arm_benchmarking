@@ -442,3 +442,60 @@ SIMD optimizations can provide dramatic performance improvements, but they work 
 - Test different vector lengths and unrolling factors
 
 SIMD optimizations are now in place, providing significant compute performance improvements. The next step is optimizing memory access patterns to feed these powerful vector units efficiently.
+
+
+## Loop Optimization Hints
+
+Guide the compiler's loop optimization decisions:
+
+```c
+// Vectorization hints
+#pragma GCC ivdep  // Ignore vector dependencies
+#pragma clang loop vectorize(enable)
+
+// Unrolling hints
+#pragma GCC unroll 4
+#pragma clang loop unroll_count(4)
+
+// Example in matrix multiplication
+void matrix_multiply_hints(const float* A, const float* B, float* C, 
+                          int M, int N, int K) {
+    for (int i = 0; i < M; i++) {
+        for (int j = 0; j < N; j++) {
+            float sum = 0.0f;
+            #pragma GCC ivdep
+            #pragma clang loop vectorize(enable)
+            for (int k = 0; k < K; k++) {
+                sum += A[i * K + k] * B[k * N + j];
+            }
+            C[i * N + j] = sum;
+        }
+    }
+}
+```
+
+## Branch Prediction Hints
+
+Help the compiler optimize branch prediction:
+
+```c
+#include <stddef.h>
+
+// Likely/unlikely macros
+#define likely(x)   __builtin_expect(!!(x), 1)
+#define unlikely(x) __builtin_expect(!!(x), 0)
+
+// Example usage
+void optimized_function(int* data, size_t size) {
+    for (size_t i = 0; i < size; i++) {
+        if (likely(data[i] > 0)) {
+            // Hot path - optimized for this case
+            data[i] *= 2;
+        } else if (unlikely(data[i] < -1000)) {
+            // Cold path - rare error case
+            handle_error(data[i]);
+        }
+    }
+}
+```
+
