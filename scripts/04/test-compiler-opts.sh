@@ -12,24 +12,7 @@ fi
 
 # Detect Neoverse processor type for proper -march/-mtune flags
 NEOVERSE_TYPE=$(lscpu | grep "Model name" | awk '{print $3}')
-case $NEOVERSE_TYPE in
-    "Neoverse-N1")
-        MARCH_FLAGS="-march=armv8.2-a+fp16+rcpc+dotprod+crypto -mtune=neoverse-n1"
-        ;;
-    "Neoverse-N2")
-        MARCH_FLAGS="-march=armv9-a+sve2+bf16+i8mm -mtune=neoverse-n2"
-        ;;
-    "Neoverse-V1")
-        MARCH_FLAGS="-march=armv8.4-a+sve+bf16+i8mm -mtune=neoverse-v1"
-        ;;
-    "Neoverse-V2")
-        MARCH_FLAGS="-march=armv9-a+sve2+bf16+i8mm -mtune=neoverse-v2"
-        ;;
-    *)
-        MARCH_FLAGS="-march=native -mtune=native"
-        echo "Warning: Unknown processor $NEOVERSE_TYPE, using -march=native"
-        ;;
-esac
+MARCH_FLAGS="-march=native -mtune=native"
 
 echo "Detected: $NEOVERSE_TYPE"
 echo "Using flags: $MARCH_FLAGS"

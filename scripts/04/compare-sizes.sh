@@ -8,10 +8,7 @@ echo
 if [ ! -f optimized_neoverse ]; then
     echo "Building optimized version..."
     NEOVERSE_TYPE=$(lscpu | grep "Model name" | awk '{print $3}')
-    case $NEOVERSE_TYPE in
-        "Neoverse-V2") MARCH_FLAGS="-march=armv9-a+sve2+bf16+i8mm -mtune=neoverse-v2" ;;
-        *) MARCH_FLAGS="-march=native -mtune=native" ;;
-    esac
+    MARCH_FLAGS="-march=native -mtune=native"
     gcc -O3 $MARCH_FLAGS -Wall -o optimized_neoverse src/optimized_matrix.c -lm
     echo
 fi

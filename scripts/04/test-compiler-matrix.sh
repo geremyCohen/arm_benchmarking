@@ -14,28 +14,6 @@ baseline_gflops=$(grep "small:" results/baseline_summary.txt | head -1 | awk '{p
 
 # Detect Neoverse processor type
 NEOVERSE_TYPE=$(lscpu | grep "Model name" | awk '{print $3}')
-case $NEOVERSE_TYPE in
-    "Neoverse-N1")
-        MARCH_SPECIFIC="armv8.2-a+fp16+rcpc+dotprod+crypto"
-        MTUNE_SPECIFIC="neoverse-n1"
-        ;;
-    "Neoverse-N2")
-        MARCH_SPECIFIC="armv9-a+sve2+bf16+i8mm"
-        MTUNE_SPECIFIC="neoverse-n2"
-        ;;
-    "Neoverse-V1")
-        MARCH_SPECIFIC="armv8.4-a+sve+bf16+i8mm"
-        MTUNE_SPECIFIC="neoverse-v1"
-        ;;
-    "Neoverse-V2")
-        MARCH_SPECIFIC="armv9-a+sve2+bf16+i8mm"
-        MTUNE_SPECIFIC="neoverse-v2"
-        ;;
-    *)
-        MARCH_SPECIFIC="native"
-        MTUNE_SPECIFIC="native"
-        ;;
-esac
 
 echo "Detected: $NEOVERSE_TYPE"
 echo "Building all optimization combinations..."
@@ -59,7 +37,7 @@ for opt in "${opt_levels[@]}"; do
                 flags="-$opt -march=native -mtune=native"
                 ;;
             "neoverse")
-                flags="-$opt -march=$MARCH_SPECIFIC -mtune=$MTUNE_SPECIFIC"
+                flags="-$opt -march=native -mtune=native"
                 ;;
         esac
         
@@ -106,7 +84,7 @@ echo
 echo "=== Key Insights ==="
 echo "• Generic: Basic optimization without architecture targeting"
 echo "• Native: GCC auto-detects processor features (-march=native -mtune=native)"  
-echo "• Neoverse: Explicit $NEOVERSE_TYPE targeting with $MARCH_SPECIFIC"
+echo "• Neoverse: Explicit $NEOVERSE_TYPE targeting with -march=native -mtune=native"
 echo "• Best speedup achieved: $(echo "$generic $native $neoverse" | tr ' ' '\n' | sort -nr | head -1 | xargs -I {} echo "scale=1; {} / $baseline_gflops" | bc -l)x over baseline"
 
 # Cleanup executables

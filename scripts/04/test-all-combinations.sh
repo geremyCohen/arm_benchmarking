@@ -178,28 +178,6 @@ fi
 
 # Detect Neoverse processor type
 NEOVERSE_TYPE=$(lscpu | grep "Model name" | awk '{print $3}')
-case $NEOVERSE_TYPE in
-    "Neoverse-N1")
-        MARCH_SPECIFIC="armv8.2-a+fp16+rcpc+dotprod+crypto"
-        MTUNE_SPECIFIC="neoverse-n1"
-        ;;
-    "Neoverse-N2")
-        MARCH_SPECIFIC="armv9-a+sve2+bf16+i8mm"
-        MTUNE_SPECIFIC="neoverse-n2"
-        ;;
-    "Neoverse-V1")
-        MARCH_SPECIFIC="armv8.4-a+sve+bf16+i8mm"
-        MTUNE_SPECIFIC="neoverse-v1"
-        ;;
-    "Neoverse-V2")
-        MARCH_SPECIFIC="armv9-a+sve2+bf16+i8mm"
-        MTUNE_SPECIFIC="neoverse-v2"
-        ;;
-    *)
-        MARCH_SPECIFIC="native"
-        MTUNE_SPECIFIC="native"
-        ;;
-esac
 
 echo "Detected: $NEOVERSE_TYPE"
 
@@ -207,10 +185,8 @@ echo "Detected: $NEOVERSE_TYPE"
 if [ "$use_arch_flags" = true ]; then
     echo "  when -march None is tested: (no flags) is literally passed to the compiler."
     echo "  when -march native is tested: \"-march=native\" is literally passed to the compiler."
-    echo "  when -march family is tested: \"-march=$MARCH_SPECIFIC\" is literally passed to the compiler."
     echo "  when -mtune native is tested: \"-mtune=native\" is literally passed to the compiler."
-    echo "  when -mtune family is tested: \"-mtune=$MTUNE_SPECIFIC\" is literally passed to the compiler."
-    echo "  Note: All combinations of march (none/native/family) and mtune (none/native) are tested."
+    echo "  Note: All combinations of march (none/native) and mtune (none/native) are tested."
 fi
 
 # Detect what native would resolve to
@@ -233,7 +209,6 @@ if [ -z "$NATIVE_MARCH" ]; then
 fi
 
 echo "-march HW detected: $NATIVE_MARCH"
-echo "-march compiler-defined: $MARCH_SPECIFIC"
 echo "Testing all combinations of optimization levels, architecture flags, and matrix sizes..."
 echo
 
@@ -312,7 +287,7 @@ else
     fi
     
     if [ "$use_arch_flags" = true ]; then
-        march_options=("none" "native" "family")
+        march_options=("none" "native")
         mtune_options=("none" "native")
     else
         march_options=("none")
@@ -454,12 +429,10 @@ for size in "${sizes[@]}"; do
                                     
                                     case $march in
                                         "native") flags="$flags -march=native" ;;
-                                        "family") flags="$flags -march=$MARCH_SPECIFIC" ;;
                                     esac
                                     
                                     case $mtune in
                                         "native") flags="$flags -mtune=native" ;;
-                                        "family") flags="$flags -mtune=$MTUNE_SPECIFIC" ;;
                                     esac
                                     
                                     # Add extra flags
@@ -610,12 +583,10 @@ for size in "${sizes[@]}"; do
                         
                         case $march in
                             "native") flags="$flags -march=native" ;;
-                            "family") flags="$flags -march=$MARCH_SPECIFIC" ;;
                         esac
                         
                         case $mtune in
                             "native") flags="$flags -mtune=native" ;;
-                            "family") flags="$flags -mtune=$MTUNE_SPECIFIC" ;;
                         esac
                         
                         march_desc="$march"
@@ -862,13 +833,11 @@ for target_size in "${sizes[@]}"; do
             case $march in
                 "none") march_flag="None" ;;
                 "native") march_flag="native" ;;
-                "family") march_flag="family" ;;
             esac
             
             case $mtune in
                 "none") mtune_flag="None" ;;
                 "native") mtune_flag="native" ;;
-                "family") mtune_flag="family" ;;
             esac
             
             # Detect PGO usage
@@ -897,11 +866,9 @@ for target_size in "${sizes[@]}"; do
                 gcc_cmd="gcc -$opt"
                 case $march in
                     "native") gcc_cmd="$gcc_cmd -march=native" ;;
-                    "family") gcc_cmd="$gcc_cmd -march=$MARCH_SPECIFIC" ;;
                 esac
                 case $mtune in
                     "native") gcc_cmd="$gcc_cmd -mtune=native" ;;
-                    "family") gcc_cmd="$gcc_cmd -mtune=$MTUNE_SPECIFIC" ;;
                 esac
                 if [[ "$extra_flags" == *"flto"* ]]; then gcc_cmd="$gcc_cmd -flto"; fi
                 if [[ "$extra_flags" == *"fomit-frame-pointer"* ]]; then gcc_cmd="$gcc_cmd -fomit-frame-pointer"; fi
@@ -959,7 +926,6 @@ get_arch_name() {
     case $1 in
         "none") echo "None" ;;
         "native") echo "native" ;;
-        "family") echo "family" ;;
         *) echo "$1" ;;
     esac
 }
