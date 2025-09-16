@@ -56,6 +56,12 @@ validate_pgo_profile() {
 }
 # test-all-combinations.sh - Test all combinations with consolidated logic for all matrix sizes
 
+# Source BOLT utility functions
+source "$(dirname "$0")/bolt_utils.sh"
+
+# Source execution utility functions
+source "$(dirname "$0")/execution_utils.sh"
+
 # Check for help flags anywhere in arguments
 for arg in "$@"; do
     if [[ "$arg" == "-h" || "$arg" == "--help" ]]; then
@@ -71,6 +77,8 @@ for arg in "$@"; do
     echo "                   Adds -flto, -fomit-frame-pointer, -funroll-loops"
     echo "  --pgo            Use profile-guided optimization (default: disabled)"
     echo "                   Adds -fprofile-generate and -fprofile-use"
+    echo "  --bolt           Use BOLT post-link optimization (default: disabled)"
+    echo "                   Profiles with perf and optimizes binary layout with llvm-bolt"
     echo "  --verbose        Show compiler commands and output (default: disabled)"
     echo "  --baseline-only  Run only baseline configuration (-O0, no march/mtune, PGO=F)"
     echo "  -h, --help       Show this help message"
@@ -81,6 +89,7 @@ for arg in "$@"; do
     echo "  $0 --runs 5 --sizes 1 --opt-levels 2,3   # 5 runs, micro only, O2+O3 only"
     echo "  $0 --sizes 2,3 --extra-flags --arch-flags # Small+medium with extra flags and arch testing"
     echo "  $0 --baseline-only --runs 3           # Baseline only, 3 runs"
+    echo "  $0 --runs 3 --pgo --bolt              # PGO + BOLT optimization (slower but maximum performance)"
     exit 0
     fi
 done
@@ -95,6 +104,7 @@ opt_levels_arg="0,1,2,3"
 matrix_sizes_arg="1,2"
 use_extra_flags=false
 use_pgo=false
+use_bolt=false
 baseline_only=false
 use_arch_flags=false
 verbose=false
@@ -124,6 +134,10 @@ while [[ $# -gt 0 ]]; do
             ;;
         --pgo)
             use_pgo=true
+            shift
+            ;;
+        --bolt)
+            use_bolt=true
             shift
             ;;
         --verbose)
@@ -205,9 +219,10 @@ echo "Matrix sizes: $size_display"
 
 # Display baseline-only mode message
 if [ "$baseline_only" = true ]; then
-    echo "Running baseline-only mode (-O0, no march/mtune, PGO=F)"
+    echo "Running baseline-only mode (-O0, no march/mtune, PGO=F, BOLT=F)"
     use_extra_flags=false
     use_pgo=false
+    use_bolt=false
 fi
 
 # Set extra optimization flags
@@ -225,6 +240,28 @@ if [ "$use_pgo" = true ]; then
 else
     echo "PGO: Disabled"
 fi
+
+# Set BOLT optimization
+if [ "$use_bolt" = true ]; then
+    echo "BOLT: Enabled (2x more combinations: with/without BOLT)"
+    # Check if llvm-bolt is available
+    if ! command -v llvm-bolt >/dev/null 2>&1; then
+        echo "ERROR: llvm-bolt not found in PATH. Please install LLVM BOLT." >&2
+        exit 1
+    fi
+    if ! command -v perf >/dev/null 2>&1; then
+        echo "ERROR: perf not found in PATH. Please install perf tools." >&2
+        exit 1
+    fi
+else
+    echo "BOLT: Disabled"
+fi
+
+# Warn about PGO+BOLT combination
+if [ "$use_pgo" = true ] && [ "$use_bolt" = true ]; then
+    echo "WARNING: PGO+BOLT combination enabled - this will significantly increase runtime"
+fi
+
 if [ "$verbose" = true ]; then
     echo "Verbose: Enabled (showing compiler commands and output)"
 else
@@ -356,27 +393,37 @@ for size in "${sizes[@]}"; do
         for march in "${march_options[@]}"; do
             for mtune in "${mtune_options[@]}"; do
                 for pgo in $([ "$use_pgo" = true ] && echo "0 1" || echo "0"); do
-                    if [ "$use_extra_flags" = true ]; then
-                        for flto in 0 1; do
-                            for fomit in 0 1; do
-                                for funroll in 0 1; do
-                                    if [ $pgo -eq 1 ]; then
-                                        combo_id="${opt}_${march}_${mtune}_${pgo}_${flto}${fomit}${funroll}_${size}"
-                                    else
-                                        combo_id="${opt}_${march}_${mtune}_${flto}${fomit}${funroll}_${size}"
-                                    fi
-                                    echo "Pending" > "$STATUS_DIR/$combo_id"
+                    for bolt in $([ "$use_bolt" = true ] && echo "0 1" || echo "0"); do
+                        if [ "$use_extra_flags" = true ]; then
+                            for flto in 0 1; do
+                                for fomit in 0 1; do
+                                    for funroll in 0 1; do
+                                        if [ $pgo -eq 1 ] && [ $bolt -eq 1 ]; then
+                                            combo_id="${opt}_${march}_${mtune}_${pgo}_${bolt}_${flto}${fomit}${funroll}_${size}"
+                                        elif [ $pgo -eq 1 ]; then
+                                            combo_id="${opt}_${march}_${mtune}_${pgo}_${flto}${fomit}${funroll}_${size}"
+                                        elif [ $bolt -eq 1 ]; then
+                                            combo_id="${opt}_${march}_${mtune}_${bolt}_${flto}${fomit}${funroll}_${size}"
+                                        else
+                                            combo_id="${opt}_${march}_${mtune}_${flto}${fomit}${funroll}_${size}"
+                                        fi
+                                        echo "Pending" > "$STATUS_DIR/$combo_id"
+                                    done
                                 done
                             done
-                        done
-                    else
-                        if [ $pgo -eq 1 ]; then
-                            combo_id="${opt}_${march}_${mtune}_${pgo}_${size}"
                         else
-                            combo_id="${opt}_${march}_${mtune}_${size}"
+                            if [ $pgo -eq 1 ] && [ $bolt -eq 1 ]; then
+                                combo_id="${opt}_${march}_${mtune}_${pgo}_${bolt}_${size}"
+                            elif [ $pgo -eq 1 ]; then
+                                combo_id="${opt}_${march}_${mtune}_${pgo}_${size}"
+                            elif [ $bolt -eq 1 ]; then
+                                combo_id="${opt}_${march}_${mtune}_${bolt}_${size}"
+                            else
+                                combo_id="${opt}_${march}_${mtune}_${size}"
+                            fi
+                            echo "Pending" > "$STATUS_DIR/$combo_id"
                         fi
-                        echo "Pending" > "$STATUS_DIR/$combo_id"
-                    fi
+                    done
                 done
             done
         done
@@ -474,7 +521,8 @@ for size in "${sizes[@]}"; do
         for march in "${march_options[@]}"; do
             for mtune in "${mtune_options[@]}"; do
                 for pgo in $([ "$use_pgo" = true ] && echo "0 1" || echo "0"); do
-                    if [ "$use_extra_flags" = true ]; then
+                    for bolt in $([ "$use_bolt" = true ] && echo "0 1" || echo "0"); do
+                        if [ "$use_extra_flags" = true ]; then
                         for flto in 0 1; do
                             for fomit in 0 1; do
                                 for funroll in 0 1; do
@@ -503,8 +551,12 @@ for size in "${sizes[@]}"; do
                                     
                                     # Run test in background
                                     (
-                                        if [ $pgo -eq 1 ]; then
+                                        if [ $pgo -eq 1 ] && [ $bolt -eq 1 ]; then
+                                            combo_id="${opt}_${march}_${mtune}_${pgo}_${bolt}_${flto}${fomit}${funroll}_${size}"
+                                        elif [ $pgo -eq 1 ]; then
                                             combo_id="${opt}_${march}_${mtune}_${pgo}_${flto}${fomit}${funroll}_${size}"
+                                        elif [ $bolt -eq 1 ]; then
+                                            combo_id="${opt}_${march}_${mtune}_${bolt}_${flto}${fomit}${funroll}_${size}"
                                         else
                                             combo_id="${opt}_${march}_${mtune}_${flto}${fomit}${funroll}_${size}"
                                         fi
@@ -780,11 +832,17 @@ for size in "${sizes[@]}"; do
                                 
                                 # Use unique filename with timestamp to prevent race conditions
                                 result_file="/tmp/combo_results_$$/$(date +%s%N)_${combo_id}"
-                                if [ $pgo -eq 1 ]; then
-                                    echo "$sort_key|$avg_gflops|$avg_time|$avg_compile_time|$opt|$march_desc|$mtune_desc|PGO|$size|[$runs_detail]" > "$result_file"
-                                else
-                                    echo "$sort_key|$avg_gflops|$avg_time|$avg_compile_time|$opt|$march_desc|$mtune_desc||$size|[$runs_detail]" > "$result_file"
+                                # Format optimization flags for storage
+                                opt_flags=""
+                                if [ $pgo -eq 1 ] && [ $bolt -eq 1 ]; then
+                                    opt_flags="PGO+BOLT"
+                                elif [ $pgo -eq 1 ]; then
+                                    opt_flags="PGO"
+                                elif [ $bolt -eq 1 ]; then
+                                    opt_flags="BOLT"
                                 fi
+                                
+                                echo "$sort_key|$avg_gflops|$avg_time|$avg_compile_time|$opt|$march_desc|$mtune_desc|$opt_flags|$size|[$runs_detail]" > "$result_file"
                             fi
                             
                             echo "Complete" > "$STATUS_DIR/$combo_id"
@@ -794,6 +852,7 @@ for size in "${sizes[@]}"; do
             done
         done
     done
+done
 done
 
 # Wait for all jobs to complete
@@ -825,13 +884,13 @@ for target_size in "${sizes[@]}"; do
     echo "### ${target_size^} Matrix ($(case $target_size in micro) echo "64x64";; small) echo "512x512";; medium) echo "1024x1024";; esac))"
     echo
     if [ "$use_extra_flags" = true ]; then
-        printf "| %-5s | %-8s | %-6s | %-10s | %-4s | %-15s | %-15s | %-20s | %-3s | %-15s |\n" "Rank" "GFLOPS" "Run" "Compile" "Opt" "-march" "-mtune" "Extra Flags" "PGO" "Individual Runs"
-        printf "|       |          | %-6s | %-10s |      |                 |                 |                      |     |                 |\n" "Time" "Time"
-        printf "|-------|----------|--------|------------|------|-----------------|-----------------|----------------------|-----|-----------------|\n"
+        printf "| %-5s | %-8s | %-6s | %-10s | %-4s | %-15s | %-15s | %-20s | %-3s | %-4s | %-15s |\n" "Rank" "GFLOPS" "Run" "Compile" "Opt" "-march" "-mtune" "Extra Flags" "PGO" "BOLT" "Individual Runs"
+        printf "|       |          | %-6s | %-10s |      |                 |                 |                      |     |      |                 |\n" "Time" "Time"
+        printf "|-------|----------|--------|------------|------|-----------------|-----------------|----------------------|-----|------|-----------------|\n"
     else
-        printf "| %-5s | %-8s | %-6s | %-10s | %-4s | %-15s | %-15s | %-3s | %-15s |\n" "Rank" "GFLOPS" "Run" "Compile" "Opt" "-march" "-mtune" "PGO" "Individual Runs"
-        printf "|       |          | %-6s | %-10s |      |                 |                |     |                 |\n" "Time" "Time"
-        printf "|-------|----------|--------|------------|------|-----------------|----------------|-----|-----------------|\n"
+        printf "| %-5s | %-8s | %-6s | %-10s | %-4s | %-15s | %-15s | %-3s | %-4s | %-15s |\n" "Rank" "GFLOPS" "Run" "Compile" "Opt" "-march" "-mtune" "PGO" "BOLT" "Individual Runs"
+        printf "|       |          | %-6s | %-10s |      |                 |                |     |      |                 |\n" "Time" "Time"
+        printf "|-------|----------|--------|------------|------|-----------------|----------------|-----|------|-----------------|\n"
     fi
     
     rank=1
@@ -914,6 +973,12 @@ for target_size in "${sizes[@]}"; do
                 pgo_display="T"
             fi
             
+            # Detect BOLT usage
+            bolt_display="F"
+            if [[ "$extra_flags" == *"BOLT"* ]]; then
+                bolt_display="T"
+            fi
+            
             # Format extra flags for display
             if [ "$use_extra_flags" = true ]; then
                 extra_display=""
@@ -923,9 +988,9 @@ for target_size in "${sizes[@]}"; do
                 extra_display=${extra_display%,}  # Remove trailing comma
                 [ -z "$extra_display" ] && extra_display="None"
                 
-                printf "\033[1m| %-5d | %-8s | %-6s | %-10s | %-4s | %-15s | %-15s | %-20s | %-3s | %-15s |\033[0m\n" "$rank" "$gflops" "$time" "$compile_time" "-$opt" "$march_flag" "$mtune_flag" "$extra_display" "$pgo_display" "$runs_detail"
+                printf "\033[1m| %-5d | %-8s | %-6s | %-10s | %-4s | %-15s | %-15s | %-20s | %-3s | %-4s | %-15s |\033[0m\n" "$rank" "$gflops" "$time" "$compile_time" "-$opt" "$march_flag" "$mtune_flag" "$extra_display" "$pgo_display" "$bolt_display" "$runs_detail"
             else
-                printf "\033[1m| %-5d | %-8s | %-6s | %-10s | %-4s | %-15s | %-15s | %-3s | %-15s |\033[0m\n" "$rank" "$gflops" "$time" "$compile_time" "-$opt" "$march_flag" "$mtune_flag" "$pgo_display" "$runs_detail"
+                printf "\033[1m| %-5d | %-8s | %-6s | %-10s | %-4s | %-15s | %-15s | %-3s | %-4s | %-15s |\033[0m\n" "$rank" "$gflops" "$time" "$compile_time" "-$opt" "$march_flag" "$mtune_flag" "$pgo_display" "$bolt_display" "$runs_detail"
             fi
             
             # Show GCC command line if verbose
