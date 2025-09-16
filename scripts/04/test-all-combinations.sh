@@ -614,6 +614,9 @@ for size in "${sizes[@]}"; do
                                         # Detect perf capabilities for subshell
                                         detect_perf_capabilities
                                         
+                                        # Debug logging
+                                        echo "DEBUG: Starting combination pgo=$pgo bolt=$bolt opt=$opt" >&2
+                                        
                                         if [ $pgo -eq 1 ] && [ $bolt -eq 1 ]; then
                                             combo_id="${opt}_${march}_${mtune}_${pgo}_${bolt}_${flto}${fomit}${funroll}_${size}"
                                         elif [ $pgo -eq 1 ]; then
@@ -711,8 +714,8 @@ for size in "${sizes[@]}"; do
                                                 run_compile_time=$(echo "scale=3; $compile_end - $compile_start" | bc -l)
                                                 
                                                 if [ $? -eq 0 ]; then
-                                                    # Apply BOLT if requested and this is the first run
-                                                    if [ $bolt -eq 1 ] && [ $run -eq 1 ]; then
+                                                    # Apply BOLT if requested
+                                                    if [ $bolt -eq 1 ]; then
                                                         bolt_workspace="temp/bolt_workspace_$$_${combo_id}_${run}"
                                                         lock_name="bolt_$(echo "${flags}_${size}" | tr ' /' '_')"
                                                         
@@ -839,6 +842,9 @@ for size in "${sizes[@]}"; do
                             # Detect perf capabilities for subshell
                             detect_perf_capabilities
                             
+                            # Debug logging
+                            echo "DEBUG: Starting standard combination pgo=$pgo bolt=$bolt opt=$opt" >&2
+                            
                             if [ $pgo -eq 1 ] && [ $bolt -eq 1 ]; then
                                 combo_id="${opt}_${march}_${mtune}_${pgo}_${bolt}_${size}"
                             elif [ $pgo -eq 1 ]; then
@@ -944,17 +950,24 @@ for size in "${sizes[@]}"; do
                                     run_compile_time=$(echo "scale=3; $compile_end - $compile_start" | bc -l)
                                     
                                     if [ $? -eq 0 ]; then
-                                        # Apply BOLT if requested and this is the first run
-                                        if [ $bolt -eq 1 ] && [ $run -eq 1 ]; then
+                                        # Debug BOLT execution
+                                        echo "DEBUG: Standard compilation successful, bolt=$bolt run=$run" >&2
+                                        
+                                        # Apply BOLT if requested
+                                        if [ $bolt -eq 1 ]; then
+                                            echo "DEBUG: Entering BOLT optimization path" >&2
                                             bolt_workspace="temp/bolt_workspace_$$_${combo_id}_${run}"
                                             lock_name="bolt_$(echo "${flags}_${size}" | tr ' /' '_')"
                                             
                                             # Acquire lock for parallel safety
+                                            echo "DEBUG: Attempting to acquire BOLT lock: $lock_name" >&2
                                             if acquire_bolt_lock "$lock_name"; then
+                                                echo "DEBUG: BOLT lock acquired, starting optimization" >&2
                                                 mkdir -p "$bolt_workspace"
                                                 bolt_binary="$bolt_workspace/bolt_optimized"
                                                 
                                                 if apply_bolt_optimization "$exe_name" "$bolt_binary" "$bolt_workspace" "$size" "$verbose"; then
+                                                    echo "DEBUG: BOLT optimization successful, running binary" >&2
                                                     # Use BOLT binary for execution
                                                     if run_bolt_binary "$bolt_binary" "$size" "$bolt_workspace"; then
                                                         run_gflops="$BOLT_GFLOPS"
@@ -962,8 +975,9 @@ for size in "${sizes[@]}"; do
                                                         result="Performance: $BOLT_GFLOPS GFLOPS\nTime: $BOLT_TIME seconds"
                                                         rm -f "$exe_name" 2>/dev/null
                                                         exe_name="$bolt_binary"  # Use BOLT binary for subsequent runs
+                                                        echo "DEBUG: BOLT execution completed, gflops=$run_gflops time=$run_time" >&2
                                                     else
-                                                        # BOLT binary execution failed, falling back to standard
+                                                        echo "DEBUG: BOLT binary execution failed, falling back to standard" >&2
                                                         result=$(./$exe_name $size 2>/dev/null)
                                                         run_gflops=$(echo "$result" | grep "Performance:" | awk '{print $2}')
                                                         run_time=$(echo "$result" | grep "Time:" | awk '{print $2}')
@@ -978,6 +992,7 @@ for size in "${sizes[@]}"; do
                                                 fi
                                                 
                                                 release_bolt_lock "$lock_name"
+                                                echo "DEBUG: BOLT lock released" >&2
                                             elif [ "$verbose" = true ]; then
                                                 echo "Failed to acquire BOLT lock"
                                                 # Fallback to standard execution
