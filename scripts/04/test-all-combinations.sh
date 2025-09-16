@@ -845,8 +845,12 @@ for size in "${sizes[@]}"; do
                             # Debug logging
                             echo "DEBUG: Starting standard combination pgo=$pgo bolt=$bolt opt=$opt" >&2
                             
-                            if [ $pgo -eq 1 ]; then
+                            if [ $pgo -eq 1 ] && [ $bolt -eq 1 ]; then
+                                combo_id="${opt}_${march}_${mtune}_${pgo}_${bolt}_${size}"
+                            elif [ $pgo -eq 1 ]; then
                                 combo_id="${opt}_${march}_${mtune}_${pgo}_${size}"
+                            elif [ $bolt -eq 1 ]; then
+                                combo_id="${opt}_${march}_${mtune}_${bolt}_${size}"
                             else
                                 combo_id="${opt}_${march}_${mtune}_${size}"
                             fi
