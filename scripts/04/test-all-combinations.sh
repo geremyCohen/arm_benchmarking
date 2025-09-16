@@ -665,11 +665,18 @@ for size in "${sizes[@]}"; do
                                                             # Phase 4: Compile with profile data
                                                             compile2_start=$(date +%s.%N)
                                                             src_path="$(pwd)/src/optimized_matrix.c"
+                                                            # Copy profile files to match expected naming for the source file
+                                                            for gcda_file in "$pgo_workspace"/*.gcda; do
+                                                                if [ -f "$gcda_file" ]; then
+                                                                    cp "$gcda_file" "$pgo_workspace/optimized_matrix.gcda" 2>/dev/null || true
+                                                                    break
+                                                                fi
+                                                            done
                                                             compile_output=$(cd "$pgo_workspace" && gcc $flags -fprofile-use -Wno-coverage-mismatch -Wall -o "${pgo_base}" "$src_path" -lm 2>&1)
                                                             compile2_end=$(date +%s.%N)
                                                             compile2_time=$(echo "scale=3; $compile2_end - $compile2_start" | bc -l)
                                                             
-                                                            # Check for profile-related errors
+                                                            # Check for profile-related errors and warnings
                                                             if [ $? -eq 0 ] && [ -x "$pgo_workspace/${pgo_base}" ] && ! echo "$compile_output" | grep -q "profile.*not found\|missing.*profile"; then
                                                                 # Phase 5: Run optimized binary
                                                                 result=$(cd "$pgo_workspace" && timeout 30 "./${pgo_base}" "$size" 2>/dev/null)
@@ -898,11 +905,18 @@ for size in "${sizes[@]}"; do
                                                 # Phase 4: Compile with profile data
                                                 compile2_start=$(date +%s.%N)
                                                 src_path="$(pwd)/src/optimized_matrix.c"
+                                                # Copy profile files to match expected naming for the source file
+                                                for gcda_file in "$pgo_workspace"/*.gcda; do
+                                                    if [ -f "$gcda_file" ]; then
+                                                        cp "$gcda_file" "$pgo_workspace/optimized_matrix.gcda" 2>/dev/null || true
+                                                        break
+                                                    fi
+                                                done
                                                 compile_output=$(cd "$pgo_workspace" && gcc $flags -fprofile-use -Wno-coverage-mismatch -Wall -o "${pgo_base}" "$src_path" -lm 2>&1)
                                                 compile2_end=$(date +%s.%N)
                                                 compile2_time=$(echo "scale=3; $compile2_end - $compile2_start" | bc -l)
                                                 
-                                                # Check for profile-related errors
+                                                # Check for profile-related errors and warnings
                                                 if [ $? -eq 0 ] && [ -x "$pgo_workspace/${pgo_base}" ] && ! echo "$compile_output" | grep -q "profile.*not found\|missing.*profile"; then
                                                     # Phase 5: Run optimized binary
                                                     result=$(cd "$pgo_workspace" && timeout 30 "./${pgo_base}" "$size" 2>/dev/null)
