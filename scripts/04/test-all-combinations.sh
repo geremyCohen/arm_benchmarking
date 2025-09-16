@@ -36,6 +36,42 @@ release_pgo_lock() {
     [ -d "$lock_file" ] && rm -rf "$lock_file" 2>/dev/null
 }
 
+# BOLT utility functions for enhanced error handling and parallel support
+BOLT_LOCK_DIR="temp/bolt_locks"
+
+acquire_bolt_lock() {
+    local lock_name="$1"
+    local lock_file="$BOLT_LOCK_DIR/${lock_name}.lock"
+    local timeout=60  # BOLT takes longer than PGO
+    local count=0
+    
+    mkdir -p "$BOLT_LOCK_DIR"
+    
+    # Clean up stale locks (older than 10 minutes)
+    if [ -d "$lock_file" ]; then
+        local lock_age=$(($(date +%s) - $(stat -c %Y "$lock_file" 2>/dev/null || echo 0)))
+        if [ $lock_age -gt 600 ]; then
+            rm -rf "$lock_file" 2>/dev/null
+        fi
+    fi
+    
+    while ! mkdir "$lock_file" 2>/dev/null; do
+        sleep 0.1
+        count=$((count + 1))
+        if [ $count -gt $((timeout * 10)) ]; then
+            return 1
+        fi
+    done
+    echo $$ > "$lock_file/pid"
+    return 0
+}
+
+release_bolt_lock() {
+    local lock_name="$1"
+    local lock_file="$BOLT_LOCK_DIR/${lock_name}.lock"
+    [ -d "$lock_file" ] && rm -rf "$lock_file" 2>/dev/null
+}
+
 validate_pgo_profile() {
     local workspace="$1"
     
@@ -572,6 +608,9 @@ for size in "${sizes[@]}"; do
                                     
                                     # Run test in background
                                     (
+                                        # Source utilities for subshell
+                                        source "$(dirname "$0")/bolt_utils.sh"
+                                        
                                         if [ $pgo -eq 1 ] && [ $bolt -eq 1 ]; then
                                             combo_id="${opt}_${march}_${mtune}_${pgo}_${bolt}_${flto}${fomit}${funroll}_${size}"
                                         elif [ $pgo -eq 1 ]; then
@@ -672,22 +711,36 @@ for size in "${sizes[@]}"; do
                                                     # Apply BOLT if requested and this is the first run
                                                     if [ $bolt -eq 1 ] && [ $run -eq 1 ]; then
                                                         bolt_workspace="temp/bolt_workspace_$$_${combo_id}_${run}"
-                                                        mkdir -p "$bolt_workspace"
-                                                        bolt_binary="$bolt_workspace/bolt_optimized"
+                                                        lock_name="bolt_$(echo "${flags}_${size}" | tr ' /' '_')"
                                                         
-                                                        if apply_bolt_optimization "$exe_name" "$bolt_binary" "$bolt_workspace" "$size" "$verbose"; then
-                                                            # Use BOLT binary for execution
-                                                            result=$(run_bolt_binary "$bolt_binary" "$size" "$bolt_workspace" && echo "Performance: $BOLT_GFLOPS GFLOPS" && echo "Time: $BOLT_TIME seconds")
-                                                            run_gflops="$BOLT_GFLOPS"
-                                                            run_time="$BOLT_TIME"
-                                                            rm -f "$exe_name" 2>/dev/null
-                                                            exe_name="$bolt_binary"  # Use BOLT binary for subsequent runs
-                                                        else
-                                                            # BOLT failed, use standard binary
+                                                        # Acquire lock for parallel safety
+                                                        if acquire_bolt_lock "$lock_name"; then
+                                                            mkdir -p "$bolt_workspace"
+                                                            bolt_binary="$bolt_workspace/bolt_optimized"
+                                                            
+                                                            if apply_bolt_optimization "$exe_name" "$bolt_binary" "$bolt_workspace" "$size" "$verbose"; then
+                                                                # Use BOLT binary for execution
+                                                                result=$(run_bolt_binary "$bolt_binary" "$size" "$bolt_workspace" && echo "Performance: $BOLT_GFLOPS GFLOPS" && echo "Time: $BOLT_TIME seconds")
+                                                                run_gflops="$BOLT_GFLOPS"
+                                                                run_time="$BOLT_TIME"
+                                                                rm -f "$exe_name" 2>/dev/null
+                                                                exe_name="$bolt_binary"  # Use BOLT binary for subsequent runs
+                                                            else
+                                                                # BOLT failed, use standard binary
+                                                                result=$(./$exe_name $size 2>/dev/null)
+                                                                run_gflops=$(echo "$result" | grep "Performance:" | awk '{print $2}')
+                                                                run_time=$(echo "$result" | grep "Time:" | awk '{print $2}')
+                                                                rm -rf "$bolt_workspace" 2>/dev/null
+                                                            fi
+                                                            
+                                                            release_bolt_lock "$lock_name"
+                                                        elif [ "$verbose" = true ]; then
+                                                            echo "Failed to acquire BOLT lock"
+                                                            # Fallback to standard execution
                                                             result=$(./$exe_name $size 2>/dev/null)
                                                             run_gflops=$(echo "$result" | grep "Performance:" | awk '{print $2}')
                                                             run_time=$(echo "$result" | grep "Time:" | awk '{print $2}')
-                                                            rm -rf "$bolt_workspace" 2>/dev/null
+                                                            rm -f "$exe_name" 2>/dev/null
                                                         fi
                                                     elif [ $bolt -eq 1 ] && [ $run -gt 1 ]; then
                                                         # Use existing BOLT binary from first run
@@ -769,6 +822,9 @@ for size in "${sizes[@]}"; do
                         
                         # Run test in background
                         (
+                            # Source utilities for subshell
+                            source "$(dirname "$0")/bolt_utils.sh"
+                            
                             if [ $pgo -eq 1 ]; then
                                 combo_id="${opt}_${march}_${mtune}_${pgo}_${size}"
                             else
@@ -873,22 +929,36 @@ for size in "${sizes[@]}"; do
                                         # Apply BOLT if requested and this is the first run
                                         if [ $bolt -eq 1 ] && [ $run -eq 1 ]; then
                                             bolt_workspace="temp/bolt_workspace_$$_${combo_id}_${run}"
-                                            mkdir -p "$bolt_workspace"
-                                            bolt_binary="$bolt_workspace/bolt_optimized"
+                                            lock_name="bolt_$(echo "${flags}_${size}" | tr ' /' '_')"
                                             
-                                            if apply_bolt_optimization "$exe_name" "$bolt_binary" "$bolt_workspace" "$size" "$verbose"; then
-                                                # Use BOLT binary for execution
-                                                result=$(run_bolt_binary "$bolt_binary" "$size" "$bolt_workspace" && echo "Performance: $BOLT_GFLOPS GFLOPS" && echo "Time: $BOLT_TIME seconds")
-                                                run_gflops="$BOLT_GFLOPS"
-                                                run_time="$BOLT_TIME"
-                                                rm -f "$exe_name" 2>/dev/null
-                                                exe_name="$bolt_binary"  # Use BOLT binary for subsequent runs
-                                            else
-                                                # BOLT failed, use standard binary
+                                            # Acquire lock for parallel safety
+                                            if acquire_bolt_lock "$lock_name"; then
+                                                mkdir -p "$bolt_workspace"
+                                                bolt_binary="$bolt_workspace/bolt_optimized"
+                                                
+                                                if apply_bolt_optimization "$exe_name" "$bolt_binary" "$bolt_workspace" "$size" "$verbose"; then
+                                                    # Use BOLT binary for execution
+                                                    result=$(run_bolt_binary "$bolt_binary" "$size" "$bolt_workspace" && echo "Performance: $BOLT_GFLOPS GFLOPS" && echo "Time: $BOLT_TIME seconds")
+                                                    run_gflops="$BOLT_GFLOPS"
+                                                    run_time="$BOLT_TIME"
+                                                    rm -f "$exe_name" 2>/dev/null
+                                                    exe_name="$bolt_binary"  # Use BOLT binary for subsequent runs
+                                                else
+                                                    # BOLT failed, use standard binary
+                                                    result=$(./$exe_name $size 2>/dev/null)
+                                                    run_gflops=$(echo "$result" | grep "Performance:" | awk '{print $2}')
+                                                    run_time=$(echo "$result" | grep "Time:" | awk '{print $2}')
+                                                    rm -rf "$bolt_workspace" 2>/dev/null
+                                                fi
+                                                
+                                                release_bolt_lock "$lock_name"
+                                            elif [ "$verbose" = true ]; then
+                                                echo "Failed to acquire BOLT lock"
+                                                # Fallback to standard execution
                                                 result=$(./$exe_name $size 2>/dev/null)
                                                 run_gflops=$(echo "$result" | grep "Performance:" | awk '{print $2}')
                                                 run_time=$(echo "$result" | grep "Time:" | awk '{print $2}')
-                                                rm -rf "$bolt_workspace" 2>/dev/null
+                                                rm -f "$exe_name" 2>/dev/null
                                             fi
                                         elif [ $bolt -eq 1 ] && [ $run -gt 1 ]; then
                                             # Use existing BOLT binary from first run
