@@ -253,6 +253,27 @@ if [ "$use_bolt" = true ]; then
         echo "ERROR: perf not found in PATH. Please install perf tools." >&2
         exit 1
     fi
+    
+    # Detect perf capabilities
+    if detect_perf_capabilities; then
+        case "$PERF_EVENTS_DETECTED" in
+            "cycles:u -j any,u")
+                echo "BOLT perf: Optimal (cycles:u with branch sampling)"
+                ;;
+            "cycles -j any")
+                echo "BOLT perf: Good (cycles with branch sampling)"
+                ;;
+            "cycles")
+                echo "BOLT perf: Limited (cycles only, no branch sampling)"
+                ;;
+            "basic")
+                echo "BOLT perf: Basic (minimal profiling capability)"
+                ;;
+        esac
+    else
+        echo "ERROR: perf profiling not functional. BOLT requires working perf." >&2
+        exit 1
+    fi
 else
     echo "BOLT: Disabled"
 fi
@@ -648,16 +669,54 @@ for size in "${sizes[@]}"; do
                                                 run_compile_time=$(echo "scale=3; $compile_end - $compile_start" | bc -l)
                                                 
                                                 if [ $? -eq 0 ]; then
-                                                    result=$(./$exe_name $size 2>/dev/null)
-                                                    run_gflops=$(echo "$result" | grep "Performance:" | awk '{print $2}')
-                                                    run_time=$(echo "$result" | grep "Time:" | awk '{print $2}')
+                                                    # Apply BOLT if requested and this is the first run
+                                                    if [ $bolt -eq 1 ] && [ $run -eq 1 ]; then
+                                                        bolt_workspace="temp/bolt_workspace_$$_${combo_id}_${run}"
+                                                        mkdir -p "$bolt_workspace"
+                                                        bolt_binary="$bolt_workspace/bolt_optimized"
+                                                        
+                                                        if apply_bolt_optimization "$exe_name" "$bolt_binary" "$bolt_workspace" "$size" "$verbose"; then
+                                                            # Use BOLT binary for execution
+                                                            result=$(run_bolt_binary "$bolt_binary" "$size" "$bolt_workspace" && echo "Performance: $BOLT_GFLOPS GFLOPS" && echo "Time: $BOLT_TIME seconds")
+                                                            run_gflops="$BOLT_GFLOPS"
+                                                            run_time="$BOLT_TIME"
+                                                            rm -f "$exe_name" 2>/dev/null
+                                                            exe_name="$bolt_binary"  # Use BOLT binary for subsequent runs
+                                                        else
+                                                            # BOLT failed, use standard binary
+                                                            result=$(./$exe_name $size 2>/dev/null)
+                                                            run_gflops=$(echo "$result" | grep "Performance:" | awk '{print $2}')
+                                                            run_time=$(echo "$result" | grep "Time:" | awk '{print $2}')
+                                                            rm -rf "$bolt_workspace" 2>/dev/null
+                                                        fi
+                                                    elif [ $bolt -eq 1 ] && [ $run -gt 1 ]; then
+                                                        # Use existing BOLT binary from first run
+                                                        bolt_workspace="temp/bolt_workspace_$$_${combo_id}_1"
+                                                        bolt_binary="$bolt_workspace/bolt_optimized"
+                                                        if [ -x "$bolt_binary" ]; then
+                                                            result=$(run_bolt_binary "$bolt_binary" "$size" "$bolt_workspace" && echo "Performance: $BOLT_GFLOPS GFLOPS" && echo "Time: $BOLT_TIME seconds")
+                                                            run_gflops="$BOLT_GFLOPS"
+                                                            run_time="$BOLT_TIME"
+                                                        else
+                                                            # Fallback to standard execution
+                                                            result=$(./$exe_name $size 2>/dev/null)
+                                                            run_gflops=$(echo "$result" | grep "Performance:" | awk '{print $2}')
+                                                            run_time=$(echo "$result" | grep "Time:" | awk '{print $2}')
+                                                        fi
+                                                        rm -f "$exe_name" 2>/dev/null
+                                                    else
+                                                        # Standard execution (no BOLT)
+                                                        result=$(./$exe_name $size 2>/dev/null)
+                                                        run_gflops=$(echo "$result" | grep "Performance:" | awk '{print $2}')
+                                                        run_time=$(echo "$result" | grep "Time:" | awk '{print $2}')
+                                                        rm -f "$exe_name" 2>/dev/null
+                                                    fi
                                                     
                                                     if [ ! -z "$run_gflops" ]; then
                                                         gflops_runs+=("$run_gflops")
                                                         time_runs+=("$run_time")
                                                         compile_time_runs+=("$run_compile_time")
                                                     fi
-                                                    rm -f $exe_name 2>/dev/null
                                                 fi
                                             fi
                                         done
@@ -679,6 +738,11 @@ for size in "${sizes[@]}"; do
                                             else
                                                 echo "$sort_key|$avg_gflops|$avg_time|$avg_compile_time|$opt|$march_desc|$mtune_desc|$extra_desc|$size|[$runs_detail]" > "$result_file"
                                             fi
+                                        fi
+                                        
+                                        # Cleanup BOLT workspace if used
+                                        if [ $bolt -eq 1 ]; then
+                                            rm -rf "temp/bolt_workspace_$$_${combo_id}_"* 2>/dev/null
                                         fi
                                         
                                         echo "Complete" > "$STATUS_DIR/$combo_id"
@@ -806,16 +870,54 @@ for size in "${sizes[@]}"; do
                                     run_compile_time=$(echo "scale=3; $compile_end - $compile_start" | bc -l)
                                     
                                     if [ $? -eq 0 ]; then
-                                        result=$(./$exe_name $size 2>/dev/null)
-                                        run_gflops=$(echo "$result" | grep "Performance:" | awk '{print $2}')
-                                        run_time=$(echo "$result" | grep "Time:" | awk '{print $2}')
+                                        # Apply BOLT if requested and this is the first run
+                                        if [ $bolt -eq 1 ] && [ $run -eq 1 ]; then
+                                            bolt_workspace="temp/bolt_workspace_$$_${combo_id}_${run}"
+                                            mkdir -p "$bolt_workspace"
+                                            bolt_binary="$bolt_workspace/bolt_optimized"
+                                            
+                                            if apply_bolt_optimization "$exe_name" "$bolt_binary" "$bolt_workspace" "$size" "$verbose"; then
+                                                # Use BOLT binary for execution
+                                                result=$(run_bolt_binary "$bolt_binary" "$size" "$bolt_workspace" && echo "Performance: $BOLT_GFLOPS GFLOPS" && echo "Time: $BOLT_TIME seconds")
+                                                run_gflops="$BOLT_GFLOPS"
+                                                run_time="$BOLT_TIME"
+                                                rm -f "$exe_name" 2>/dev/null
+                                                exe_name="$bolt_binary"  # Use BOLT binary for subsequent runs
+                                            else
+                                                # BOLT failed, use standard binary
+                                                result=$(./$exe_name $size 2>/dev/null)
+                                                run_gflops=$(echo "$result" | grep "Performance:" | awk '{print $2}')
+                                                run_time=$(echo "$result" | grep "Time:" | awk '{print $2}')
+                                                rm -rf "$bolt_workspace" 2>/dev/null
+                                            fi
+                                        elif [ $bolt -eq 1 ] && [ $run -gt 1 ]; then
+                                            # Use existing BOLT binary from first run
+                                            bolt_workspace="temp/bolt_workspace_$$_${combo_id}_1"
+                                            bolt_binary="$bolt_workspace/bolt_optimized"
+                                            if [ -x "$bolt_binary" ]; then
+                                                result=$(run_bolt_binary "$bolt_binary" "$size" "$bolt_workspace" && echo "Performance: $BOLT_GFLOPS GFLOPS" && echo "Time: $BOLT_TIME seconds")
+                                                run_gflops="$BOLT_GFLOPS"
+                                                run_time="$BOLT_TIME"
+                                            else
+                                                # Fallback to standard execution
+                                                result=$(./$exe_name $size 2>/dev/null)
+                                                run_gflops=$(echo "$result" | grep "Performance:" | awk '{print $2}')
+                                                run_time=$(echo "$result" | grep "Time:" | awk '{print $2}')
+                                            fi
+                                            rm -f "$exe_name" 2>/dev/null
+                                        else
+                                            # Standard execution (no BOLT)
+                                            result=$(./$exe_name $size 2>/dev/null)
+                                            run_gflops=$(echo "$result" | grep "Performance:" | awk '{print $2}')
+                                            run_time=$(echo "$result" | grep "Time:" | awk '{print $2}')
+                                            rm -f "$exe_name" 2>/dev/null
+                                        fi
                                         
                                         if [ ! -z "$run_gflops" ]; then
                                             gflops_runs+=("$run_gflops")
                                             time_runs+=("$run_time")
                                             compile_time_runs+=("$run_compile_time")
                                         fi
-                                        rm -f $exe_name 2>/dev/null
                                     fi
                                 fi
                             done
@@ -843,6 +945,11 @@ for size in "${sizes[@]}"; do
                                 fi
                                 
                                 echo "$sort_key|$avg_gflops|$avg_time|$avg_compile_time|$opt|$march_desc|$mtune_desc|$opt_flags|$size|[$runs_detail]" > "$result_file"
+                            fi
+                            
+                            # Cleanup BOLT workspace if used
+                            if [ $bolt -eq 1 ]; then
+                                rm -rf "temp/bolt_workspace_$$_${combo_id}_"* 2>/dev/null
                             fi
                             
                             echo "Complete" > "$STATUS_DIR/$combo_id"

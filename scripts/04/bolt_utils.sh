@@ -3,6 +3,52 @@
 # BOLT Utility Functions for Enhanced Post-Link Optimization
 # Usage: source this file in test-all-combinations.sh
 
+# Global variable to store detected perf capabilities
+PERF_EVENTS_DETECTED=""
+
+# Function to detect perf capabilities at script startup
+detect_perf_capabilities() {
+    if ! command -v perf >/dev/null 2>&1; then
+        echo "ERROR: perf not found in PATH" >&2
+        return 1
+    fi
+    
+    # Test perf configurations in order of preference
+    local test_binary="/bin/true"
+    
+    # Test 1: cycles:u with branch sampling
+    if timeout 2 perf record -e cycles:u -j any,u -o /tmp/perf_test_$$.data -- "$test_binary" >/dev/null 2>&1; then
+        PERF_EVENTS_DETECTED="cycles:u -j any,u"
+        rm -f /tmp/perf_test_$$.data 2>/dev/null
+        return 0
+    fi
+    
+    # Test 2: cycles with branch sampling
+    if timeout 2 perf record -e cycles -j any -o /tmp/perf_test_$$.data -- "$test_binary" >/dev/null 2>&1; then
+        PERF_EVENTS_DETECTED="cycles -j any"
+        rm -f /tmp/perf_test_$$.data 2>/dev/null
+        return 0
+    fi
+    
+    # Test 3: cycles only (no branch sampling)
+    if timeout 2 perf record -e cycles -o /tmp/perf_test_$$.data -- "$test_binary" >/dev/null 2>&1; then
+        PERF_EVENTS_DETECTED="cycles"
+        rm -f /tmp/perf_test_$$.data 2>/dev/null
+        return 0
+    fi
+    
+    # Test 4: basic perf (fallback)
+    if timeout 2 perf record -o /tmp/perf_test_$$.data -- "$test_binary" >/dev/null 2>&1; then
+        PERF_EVENTS_DETECTED="basic"
+        rm -f /tmp/perf_test_$$.data 2>/dev/null
+        return 0
+    fi
+    
+    # Cleanup any remaining test files
+    rm -f /tmp/perf_test_$$.data 2>/dev/null
+    return 1
+}
+
 # Function to apply BOLT optimization to a binary
 apply_bolt_optimization() {
     local input_binary="$1"
@@ -25,25 +71,26 @@ apply_bolt_optimization() {
     local perf_output
     local abs_input_binary="$(realpath "$input_binary")"
     
-    # Try different perf configurations in order of preference
-    if perf_output=$(cd "$workspace" && timeout 60 perf record -e cycles:u -j any,u -o perf.data -- "$abs_input_binary" "$size" 2>&1); then
-        local perf_status=0
-    elif perf_output=$(cd "$workspace" && timeout 60 perf record -e cycles -j any -o perf.data -- "$abs_input_binary" "$size" 2>&1); then
-        local perf_status=0
-    elif perf_output=$(cd "$workspace" && timeout 60 perf record -e cycles -o perf.data -- "$abs_input_binary" "$size" 2>&1); then
-        local perf_status=0
-        echo "WARNING: Using perf without branch sampling - BOLT optimization may be less effective" >&2
-    else
-        local perf_status=1
-        echo "WARNING: All perf configurations failed, trying basic profiling..." >&2
-        # Last resort: try with minimal options
-        if perf_output=$(cd "$workspace" && timeout 60 perf record -o perf.data -- "$abs_input_binary" "$size" 2>&1); then
-            local perf_status=0
-            echo "WARNING: Using basic perf profiling - BOLT optimization may be limited" >&2
-        else
-            local perf_status=1
-        fi
-    fi
+    # Use detected perf capabilities
+    case "$PERF_EVENTS_DETECTED" in
+        "cycles:u -j any,u")
+            perf_output=$(cd "$workspace" && timeout 60 perf record -e cycles:u -j any,u -o perf.data -- "$abs_input_binary" "$size" 2>&1)
+            ;;
+        "cycles -j any")
+            perf_output=$(cd "$workspace" && timeout 60 perf record -e cycles -j any -o perf.data -- "$abs_input_binary" "$size" 2>&1)
+            ;;
+        "cycles")
+            perf_output=$(cd "$workspace" && timeout 60 perf record -e cycles -o perf.data -- "$abs_input_binary" "$size" 2>&1)
+            ;;
+        "basic")
+            perf_output=$(cd "$workspace" && timeout 60 perf record -o perf.data -- "$abs_input_binary" "$size" 2>&1)
+            ;;
+        *)
+            echo "ERROR: No compatible perf configuration detected" >&2
+            return 1
+            ;;
+    esac
+    local perf_status=$?
     
     if [ $perf_status -ne 0 ]; then
         echo "ERROR: perf record failed (exit code: $perf_status)" >&2
