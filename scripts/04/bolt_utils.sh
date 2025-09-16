@@ -67,6 +67,7 @@ apply_bolt_optimization() {
     
     # Step 1: Collect performance profile with perf
     [ "$verbose" = true ] && echo "BOLT: Collecting performance profile..."
+    echo "DEBUG: Starting perf profiling with $PERF_EVENTS_DETECTED" >&2
     
     local perf_output
     local abs_input_binary="$(realpath "$input_binary")"
@@ -92,6 +93,8 @@ apply_bolt_optimization() {
     esac
     local perf_status=$?
     
+    echo "DEBUG: Perf completed with status $perf_status" >&2
+    
     if [ $perf_status -ne 0 ]; then
         echo "ERROR: perf record failed (exit code: $perf_status)" >&2
         [ "$verbose" = true ] && echo "perf output: $perf_output" >&2
@@ -112,6 +115,7 @@ apply_bolt_optimization() {
     
     # Step 2: Apply BOLT optimization
     [ "$verbose" = true ] && echo "BOLT: Optimizing binary layout..."
+    echo "DEBUG: Starting llvm-bolt optimization" >&2
     
     local bolt_output
     local abs_bolt_binary="$(realpath -m "$bolt_binary")"
@@ -119,6 +123,8 @@ apply_bolt_optimization() {
     # Use AArch64-compatible BOLT options
     bolt_output=$(cd "$workspace" && llvm-bolt "$abs_input_binary" -data=perf.data -reorder-blocks=ext-tsp -dyno-stats -o "$abs_bolt_binary" 2>&1)
     local bolt_status=$?
+    
+    echo "DEBUG: llvm-bolt completed with status $bolt_status" >&2
     
     if [ $bolt_status -ne 0 ]; then
         echo "ERROR: llvm-bolt failed (exit code: $bolt_status)" >&2
@@ -138,6 +144,7 @@ apply_bolt_optimization() {
     fi
     
     [ "$verbose" = true ] && echo "BOLT: Optimization completed successfully"
+    echo "DEBUG: BOLT optimization function completed successfully" >&2
     
     # Export BOLT stats if available
     if echo "$bolt_output" | grep -q "BOLT-INFO"; then
@@ -153,6 +160,8 @@ run_bolt_binary() {
     local size="$2"
     local workspace="$3"
     
+    echo "DEBUG: Starting BOLT binary execution" >&2
+    
     if [ ! -x "$binary" ]; then
         echo "ERROR: BOLT binary not executable: $binary" >&2
         return 1
@@ -161,6 +170,8 @@ run_bolt_binary() {
     local result
     result=$(cd "$workspace" && timeout 30 "./${binary##*/}" "$size" 2>&1)
     local run_status=$?
+    
+    echo "DEBUG: BOLT binary execution completed with status $run_status" >&2
     
     if [ $run_status -ne 0 ]; then
         echo "ERROR: BOLT binary execution failed (exit code: $run_status)" >&2
