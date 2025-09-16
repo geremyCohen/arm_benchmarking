@@ -12,3 +12,4 @@ When I ask you fix a script, modify the existing script, never create a new one.
 
 Always commit and push when completing a fix.  If there is a merge issue, fix it.
 
+Next to each "Using tool:" line, add a current timestamp in ISO 8601 format.
