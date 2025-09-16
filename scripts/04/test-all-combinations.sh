@@ -36,6 +36,42 @@ release_pgo_lock() {
     [ -d "$lock_file" ] && rm -rf "$lock_file" 2>/dev/null
 }
 
+# BOLT utility functions for enhanced error handling and parallel support
+BOLT_LOCK_DIR="temp/bolt_locks"
+
+acquire_bolt_lock() {
+    local lock_name="$1"
+    local lock_file="$BOLT_LOCK_DIR/${lock_name}.lock"
+    local timeout=60  # BOLT takes longer than PGO
+    local count=0
+    
+    mkdir -p "$BOLT_LOCK_DIR"
+    
+    # Clean up stale locks (older than 10 minutes)
+    if [ -d "$lock_file" ]; then
+        local lock_age=$(($(date +%s) - $(stat -c %Y "$lock_file" 2>/dev/null || echo 0)))
+        if [ $lock_age -gt 600 ]; then
+            rm -rf "$lock_file" 2>/dev/null
+        fi
+    fi
+    
+    while ! mkdir "$lock_file" 2>/dev/null; do
+        sleep 0.1
+        count=$((count + 1))
+        if [ $count -gt $((timeout * 10)) ]; then
+            return 1
+        fi
+    done
+    echo $$ > "$lock_file/pid"
+    return 0
+}
+
+release_bolt_lock() {
+    local lock_name="$1"
+    local lock_file="$BOLT_LOCK_DIR/${lock_name}.lock"
+    [ -d "$lock_file" ] && rm -rf "$lock_file" 2>/dev/null
+}
+
 validate_pgo_profile() {
     local workspace="$1"
     
@@ -56,6 +92,12 @@ validate_pgo_profile() {
 }
 # test-all-combinations.sh - Test all combinations with consolidated logic for all matrix sizes
 
+# Source BOLT utility functions
+source "$(dirname "$0")/bolt_utils.sh"
+
+# Source execution utility functions
+source "$(dirname "$0")/execution_utils.sh"
+
 # Check for help flags anywhere in arguments
 for arg in "$@"; do
     if [[ "$arg" == "-h" || "$arg" == "--help" ]]; then
@@ -71,6 +113,8 @@ for arg in "$@"; do
     echo "                   Adds -flto, -fomit-frame-pointer, -funroll-loops"
     echo "  --pgo            Use profile-guided optimization (default: disabled)"
     echo "                   Adds -fprofile-generate and -fprofile-use"
+    echo "  --bolt           Use BOLT post-link optimization (default: disabled)"
+    echo "                   Profiles with perf and optimizes binary layout with llvm-bolt"
     echo "  --verbose        Show compiler commands and output (default: disabled)"
     echo "  --baseline-only  Run only baseline configuration (-O0, no march/mtune, PGO=F)"
     echo "  -h, --help       Show this help message"
@@ -81,6 +125,7 @@ for arg in "$@"; do
     echo "  $0 --runs 5 --sizes 1 --opt-levels 2,3   # 5 runs, micro only, O2+O3 only"
     echo "  $0 --sizes 2,3 --extra-flags --arch-flags # Small+medium with extra flags and arch testing"
     echo "  $0 --baseline-only --runs 3           # Baseline only, 3 runs"
+    echo "  $0 --runs 3 --pgo --bolt              # PGO + BOLT optimization (slower but maximum performance)"
     exit 0
     fi
 done
@@ -95,6 +140,7 @@ opt_levels_arg="0,1,2,3"
 matrix_sizes_arg="1,2"
 use_extra_flags=false
 use_pgo=false
+use_bolt=false
 baseline_only=false
 use_arch_flags=false
 verbose=false
@@ -124,6 +170,10 @@ while [[ $# -gt 0 ]]; do
             ;;
         --pgo)
             use_pgo=true
+            shift
+            ;;
+        --bolt)
+            use_bolt=true
             shift
             ;;
         --verbose)
@@ -205,9 +255,10 @@ echo "Matrix sizes: $size_display"
 
 # Display baseline-only mode message
 if [ "$baseline_only" = true ]; then
-    echo "Running baseline-only mode (-O0, no march/mtune, PGO=F)"
+    echo "Running baseline-only mode (-O0, no march/mtune, PGO=F, BOLT=F)"
     use_extra_flags=false
     use_pgo=false
+    use_bolt=false
 fi
 
 # Set extra optimization flags
@@ -225,6 +276,49 @@ if [ "$use_pgo" = true ]; then
 else
     echo "PGO: Disabled"
 fi
+
+# Set BOLT optimization
+if [ "$use_bolt" = true ]; then
+    echo "BOLT: Enabled (2x more combinations: with/without BOLT)"
+    # Check if llvm-bolt is available
+    if ! command -v llvm-bolt >/dev/null 2>&1; then
+        echo "ERROR: llvm-bolt not found in PATH. Please install LLVM BOLT." >&2
+        exit 1
+    fi
+    if ! command -v perf >/dev/null 2>&1; then
+        echo "ERROR: perf not found in PATH. Please install perf tools." >&2
+        exit 1
+    fi
+    
+    # Detect perf capabilities
+    if detect_perf_capabilities; then
+        case "$PERF_EVENTS_DETECTED" in
+            "cycles:u -j any,u")
+                echo "BOLT perf: Optimal (cycles:u with branch sampling)"
+                ;;
+            "cycles -j any")
+                echo "BOLT perf: Good (cycles with branch sampling)"
+                ;;
+            "cycles")
+                echo "BOLT perf: Limited (cycles only, no branch sampling)"
+                ;;
+            "basic")
+                echo "BOLT perf: Basic (minimal profiling capability)"
+                ;;
+        esac
+    else
+        echo "ERROR: perf profiling not functional. BOLT requires working perf." >&2
+        exit 1
+    fi
+else
+    echo "BOLT: Disabled"
+fi
+
+# Warn about PGO+BOLT combination
+if [ "$use_pgo" = true ] && [ "$use_bolt" = true ]; then
+    echo "WARNING: PGO+BOLT combination enabled - this will significantly increase runtime"
+fi
+
 if [ "$verbose" = true ]; then
     echo "Verbose: Enabled (showing compiler commands and output)"
 else
@@ -356,27 +450,37 @@ for size in "${sizes[@]}"; do
         for march in "${march_options[@]}"; do
             for mtune in "${mtune_options[@]}"; do
                 for pgo in $([ "$use_pgo" = true ] && echo "0 1" || echo "0"); do
-                    if [ "$use_extra_flags" = true ]; then
-                        for flto in 0 1; do
-                            for fomit in 0 1; do
-                                for funroll in 0 1; do
-                                    if [ $pgo -eq 1 ]; then
-                                        combo_id="${opt}_${march}_${mtune}_${pgo}_${flto}${fomit}${funroll}_${size}"
-                                    else
-                                        combo_id="${opt}_${march}_${mtune}_${flto}${fomit}${funroll}_${size}"
-                                    fi
-                                    echo "Pending" > "$STATUS_DIR/$combo_id"
+                    for bolt in $([ "$use_bolt" = true ] && echo "0 1" || echo "0"); do
+                        if [ "$use_extra_flags" = true ]; then
+                            for flto in 0 1; do
+                                for fomit in 0 1; do
+                                    for funroll in 0 1; do
+                                        if [ $pgo -eq 1 ] && [ $bolt -eq 1 ]; then
+                                            combo_id="${opt}_${march}_${mtune}_${pgo}_${bolt}_${flto}${fomit}${funroll}_${size}"
+                                        elif [ $pgo -eq 1 ]; then
+                                            combo_id="${opt}_${march}_${mtune}_${pgo}_${flto}${fomit}${funroll}_${size}"
+                                        elif [ $bolt -eq 1 ]; then
+                                            combo_id="${opt}_${march}_${mtune}_${bolt}_${flto}${fomit}${funroll}_${size}"
+                                        else
+                                            combo_id="${opt}_${march}_${mtune}_${flto}${fomit}${funroll}_${size}"
+                                        fi
+                                        echo "Pending" > "$STATUS_DIR/$combo_id"
+                                    done
                                 done
                             done
-                        done
-                    else
-                        if [ $pgo -eq 1 ]; then
-                            combo_id="${opt}_${march}_${mtune}_${pgo}_${size}"
                         else
-                            combo_id="${opt}_${march}_${mtune}_${size}"
+                            if [ $pgo -eq 1 ] && [ $bolt -eq 1 ]; then
+                                combo_id="${opt}_${march}_${mtune}_${pgo}_${bolt}_${size}"
+                            elif [ $pgo -eq 1 ]; then
+                                combo_id="${opt}_${march}_${mtune}_${pgo}_${size}"
+                            elif [ $bolt -eq 1 ]; then
+                                combo_id="${opt}_${march}_${mtune}_${bolt}_${size}"
+                            else
+                                combo_id="${opt}_${march}_${mtune}_${size}"
+                            fi
+                            echo "Pending" > "$STATUS_DIR/$combo_id"
                         fi
-                        echo "Pending" > "$STATUS_DIR/$combo_id"
-                    fi
+                    done
                 done
             done
         done
@@ -474,7 +578,8 @@ for size in "${sizes[@]}"; do
         for march in "${march_options[@]}"; do
             for mtune in "${mtune_options[@]}"; do
                 for pgo in $([ "$use_pgo" = true ] && echo "0 1" || echo "0"); do
-                    if [ "$use_extra_flags" = true ]; then
+                    for bolt in $([ "$use_bolt" = true ] && echo "0 1" || echo "0"); do
+                        if [ "$use_extra_flags" = true ]; then
                         for flto in 0 1; do
                             for fomit in 0 1; do
                                 for funroll in 0 1; do
@@ -503,8 +608,18 @@ for size in "${sizes[@]}"; do
                                     
                                     # Run test in background
                                     (
-                                        if [ $pgo -eq 1 ]; then
+                                        # Source utilities for subshell
+                                        source "$(dirname "$0")/bolt_utils.sh"
+                                        
+                                        # Detect perf capabilities for subshell
+                                        detect_perf_capabilities
+                                        
+                                        if [ $pgo -eq 1 ] && [ $bolt -eq 1 ]; then
+                                            combo_id="${opt}_${march}_${mtune}_${pgo}_${bolt}_${flto}${fomit}${funroll}_${size}"
+                                        elif [ $pgo -eq 1 ]; then
                                             combo_id="${opt}_${march}_${mtune}_${pgo}_${flto}${fomit}${funroll}_${size}"
+                                        elif [ $bolt -eq 1 ]; then
+                                            combo_id="${opt}_${march}_${mtune}_${bolt}_${flto}${fomit}${funroll}_${size}"
                                         else
                                             combo_id="${opt}_${march}_${mtune}_${flto}${fomit}${funroll}_${size}"
                                         fi
@@ -596,16 +711,76 @@ for size in "${sizes[@]}"; do
                                                 run_compile_time=$(echo "scale=3; $compile_end - $compile_start" | bc -l)
                                                 
                                                 if [ $? -eq 0 ]; then
-                                                    result=$(./$exe_name $size 2>/dev/null)
-                                                    run_gflops=$(echo "$result" | grep "Performance:" | awk '{print $2}')
-                                                    run_time=$(echo "$result" | grep "Time:" | awk '{print $2}')
+                                                    # Apply BOLT if requested and this is the first run
+                                                    if [ $bolt -eq 1 ] && [ $run -eq 1 ]; then
+                                                        bolt_workspace="temp/bolt_workspace_$$_${combo_id}_${run}"
+                                                        lock_name="bolt_$(echo "${flags}_${size}" | tr ' /' '_')"
+                                                        
+                                                        # Acquire lock for parallel safety
+                                                        if acquire_bolt_lock "$lock_name"; then
+                                                            mkdir -p "$bolt_workspace"
+                                                            bolt_binary="$bolt_workspace/bolt_optimized"
+                                                            
+                                                            if apply_bolt_optimization "$exe_name" "$bolt_binary" "$bolt_workspace" "$size" "$verbose"; then
+                                                                # Use BOLT binary for execution
+                                                                if run_bolt_binary "$bolt_binary" "$size" "$bolt_workspace"; then
+                                                                    run_gflops="$BOLT_GFLOPS"
+                                                                    run_time="$BOLT_TIME"
+                                                                    result="Performance: $BOLT_GFLOPS GFLOPS\nTime: $BOLT_TIME seconds"
+                                                                    rm -f "$exe_name" 2>/dev/null
+                                                                    exe_name="$bolt_binary"  # Use BOLT binary for subsequent runs
+                                                                else
+                                                                    # BOLT binary execution failed, use standard binary
+                                                                    result=$(./$exe_name $size 2>/dev/null)
+                                                                    run_gflops=$(echo "$result" | grep "Performance:" | awk '{print $2}')
+                                                                    run_time=$(echo "$result" | grep "Time:" | awk '{print $2}')
+                                                                    rm -rf "$bolt_workspace" 2>/dev/null
+                                                                fi
+                                                            else
+                                                                # BOLT failed, use standard binary
+                                                                result=$(./$exe_name $size 2>/dev/null)
+                                                                run_gflops=$(echo "$result" | grep "Performance:" | awk '{print $2}')
+                                                                run_time=$(echo "$result" | grep "Time:" | awk '{print $2}')
+                                                                rm -rf "$bolt_workspace" 2>/dev/null
+                                                            fi
+                                                            
+                                                            release_bolt_lock "$lock_name"
+                                                        elif [ "$verbose" = true ]; then
+                                                            echo "Failed to acquire BOLT lock"
+                                                            # Fallback to standard execution
+                                                            result=$(./$exe_name $size 2>/dev/null)
+                                                            run_gflops=$(echo "$result" | grep "Performance:" | awk '{print $2}')
+                                                            run_time=$(echo "$result" | grep "Time:" | awk '{print $2}')
+                                                            rm -f "$exe_name" 2>/dev/null
+                                                        fi
+                                                    elif [ $bolt -eq 1 ] && [ $run -gt 1 ]; then
+                                                        # Use existing BOLT binary from first run
+                                                        bolt_workspace="temp/bolt_workspace_$$_${combo_id}_1"
+                                                        bolt_binary="$bolt_workspace/bolt_optimized"
+                                                        if [ -x "$bolt_binary" ]; then
+                                                            result=$(run_bolt_binary "$bolt_binary" "$size" "$bolt_workspace" && echo "Performance: $BOLT_GFLOPS GFLOPS" && echo "Time: $BOLT_TIME seconds")
+                                                            run_gflops="$BOLT_GFLOPS"
+                                                            run_time="$BOLT_TIME"
+                                                        else
+                                                            # Fallback to standard execution
+                                                            result=$(./$exe_name $size 2>/dev/null)
+                                                            run_gflops=$(echo "$result" | grep "Performance:" | awk '{print $2}')
+                                                            run_time=$(echo "$result" | grep "Time:" | awk '{print $2}')
+                                                        fi
+                                                        rm -f "$exe_name" 2>/dev/null
+                                                    else
+                                                        # Standard execution (no BOLT)
+                                                        result=$(./$exe_name $size 2>/dev/null)
+                                                        run_gflops=$(echo "$result" | grep "Performance:" | awk '{print $2}')
+                                                        run_time=$(echo "$result" | grep "Time:" | awk '{print $2}')
+                                                        rm -f "$exe_name" 2>/dev/null
+                                                    fi
                                                     
                                                     if [ ! -z "$run_gflops" ]; then
                                                         gflops_runs+=("$run_gflops")
                                                         time_runs+=("$run_time")
                                                         compile_time_runs+=("$run_compile_time")
                                                     fi
-                                                    rm -f $exe_name 2>/dev/null
                                                 fi
                                             fi
                                         done
@@ -627,6 +802,11 @@ for size in "${sizes[@]}"; do
                                             else
                                                 echo "$sort_key|$avg_gflops|$avg_time|$avg_compile_time|$opt|$march_desc|$mtune_desc|$extra_desc|$size|[$runs_detail]" > "$result_file"
                                             fi
+                                        fi
+                                        
+                                        # Cleanup BOLT workspace if used
+                                        if [ $bolt -eq 1 ]; then
+                                            rm -rf "temp/bolt_workspace_$$_${combo_id}_"* 2>/dev/null
                                         fi
                                         
                                         echo "Complete" > "$STATUS_DIR/$combo_id"
@@ -653,8 +833,18 @@ for size in "${sizes[@]}"; do
                         
                         # Run test in background
                         (
-                            if [ $pgo -eq 1 ]; then
+                            # Source utilities for subshell
+                            source "$(dirname "$0")/bolt_utils.sh"
+                            
+                            # Detect perf capabilities for subshell
+                            detect_perf_capabilities
+                            
+                            if [ $pgo -eq 1 ] && [ $bolt -eq 1 ]; then
+                                combo_id="${opt}_${march}_${mtune}_${pgo}_${bolt}_${size}"
+                            elif [ $pgo -eq 1 ]; then
                                 combo_id="${opt}_${march}_${mtune}_${pgo}_${size}"
+                            elif [ $bolt -eq 1 ]; then
+                                combo_id="${opt}_${march}_${mtune}_${bolt}_${size}"
                             else
                                 combo_id="${opt}_${march}_${mtune}_${size}"
                             fi
@@ -754,16 +944,76 @@ for size in "${sizes[@]}"; do
                                     run_compile_time=$(echo "scale=3; $compile_end - $compile_start" | bc -l)
                                     
                                     if [ $? -eq 0 ]; then
-                                        result=$(./$exe_name $size 2>/dev/null)
-                                        run_gflops=$(echo "$result" | grep "Performance:" | awk '{print $2}')
-                                        run_time=$(echo "$result" | grep "Time:" | awk '{print $2}')
+                                        # Apply BOLT if requested and this is the first run
+                                        if [ $bolt -eq 1 ] && [ $run -eq 1 ]; then
+                                            bolt_workspace="temp/bolt_workspace_$$_${combo_id}_${run}"
+                                            lock_name="bolt_$(echo "${flags}_${size}" | tr ' /' '_')"
+                                            
+                                            # Acquire lock for parallel safety
+                                            if acquire_bolt_lock "$lock_name"; then
+                                                mkdir -p "$bolt_workspace"
+                                                bolt_binary="$bolt_workspace/bolt_optimized"
+                                                
+                                                if apply_bolt_optimization "$exe_name" "$bolt_binary" "$bolt_workspace" "$size" "$verbose"; then
+                                                    # Use BOLT binary for execution
+                                                    if run_bolt_binary "$bolt_binary" "$size" "$bolt_workspace"; then
+                                                        run_gflops="$BOLT_GFLOPS"
+                                                        run_time="$BOLT_TIME"
+                                                        result="Performance: $BOLT_GFLOPS GFLOPS\nTime: $BOLT_TIME seconds"
+                                                        rm -f "$exe_name" 2>/dev/null
+                                                        exe_name="$bolt_binary"  # Use BOLT binary for subsequent runs
+                                                    else
+                                                        # BOLT binary execution failed, falling back to standard
+                                                        result=$(./$exe_name $size 2>/dev/null)
+                                                        run_gflops=$(echo "$result" | grep "Performance:" | awk '{print $2}')
+                                                        run_time=$(echo "$result" | grep "Time:" | awk '{print $2}')
+                                                        rm -rf "$bolt_workspace" 2>/dev/null
+                                                    fi
+                                                else
+                                                    # BOLT failed, use standard binary
+                                                    result=$(./$exe_name $size 2>/dev/null)
+                                                    run_gflops=$(echo "$result" | grep "Performance:" | awk '{print $2}')
+                                                    run_time=$(echo "$result" | grep "Time:" | awk '{print $2}')
+                                                    rm -rf "$bolt_workspace" 2>/dev/null
+                                                fi
+                                                
+                                                release_bolt_lock "$lock_name"
+                                            elif [ "$verbose" = true ]; then
+                                                echo "Failed to acquire BOLT lock"
+                                                # Fallback to standard execution
+                                                result=$(./$exe_name $size 2>/dev/null)
+                                                run_gflops=$(echo "$result" | grep "Performance:" | awk '{print $2}')
+                                                run_time=$(echo "$result" | grep "Time:" | awk '{print $2}')
+                                                rm -f "$exe_name" 2>/dev/null
+                                            fi
+                                        elif [ $bolt -eq 1 ] && [ $run -gt 1 ]; then
+                                            # Use existing BOLT binary from first run
+                                            bolt_workspace="temp/bolt_workspace_$$_${combo_id}_1"
+                                            bolt_binary="$bolt_workspace/bolt_optimized"
+                                            if [ -x "$bolt_binary" ]; then
+                                                result=$(run_bolt_binary "$bolt_binary" "$size" "$bolt_workspace" && echo "Performance: $BOLT_GFLOPS GFLOPS" && echo "Time: $BOLT_TIME seconds")
+                                                run_gflops="$BOLT_GFLOPS"
+                                                run_time="$BOLT_TIME"
+                                            else
+                                                # Fallback to standard execution
+                                                result=$(./$exe_name $size 2>/dev/null)
+                                                run_gflops=$(echo "$result" | grep "Performance:" | awk '{print $2}')
+                                                run_time=$(echo "$result" | grep "Time:" | awk '{print $2}')
+                                            fi
+                                            rm -f "$exe_name" 2>/dev/null
+                                        else
+                                            # Standard execution (no BOLT)
+                                            result=$(./$exe_name $size 2>/dev/null)
+                                            run_gflops=$(echo "$result" | grep "Performance:" | awk '{print $2}')
+                                            run_time=$(echo "$result" | grep "Time:" | awk '{print $2}')
+                                            rm -f "$exe_name" 2>/dev/null
+                                        fi
                                         
                                         if [ ! -z "$run_gflops" ]; then
                                             gflops_runs+=("$run_gflops")
                                             time_runs+=("$run_time")
                                             compile_time_runs+=("$run_compile_time")
                                         fi
-                                        rm -f $exe_name 2>/dev/null
                                     fi
                                 fi
                             done
@@ -780,11 +1030,22 @@ for size in "${sizes[@]}"; do
                                 
                                 # Use unique filename with timestamp to prevent race conditions
                                 result_file="/tmp/combo_results_$$/$(date +%s%N)_${combo_id}"
-                                if [ $pgo -eq 1 ]; then
-                                    echo "$sort_key|$avg_gflops|$avg_time|$avg_compile_time|$opt|$march_desc|$mtune_desc|PGO|$size|[$runs_detail]" > "$result_file"
-                                else
-                                    echo "$sort_key|$avg_gflops|$avg_time|$avg_compile_time|$opt|$march_desc|$mtune_desc||$size|[$runs_detail]" > "$result_file"
+                                # Format optimization flags for storage
+                                opt_flags=""
+                                if [ $pgo -eq 1 ] && [ $bolt -eq 1 ]; then
+                                    opt_flags="PGO+BOLT"
+                                elif [ $pgo -eq 1 ]; then
+                                    opt_flags="PGO"
+                                elif [ $bolt -eq 1 ]; then
+                                    opt_flags="BOLT"
                                 fi
+                                
+                                echo "$sort_key|$avg_gflops|$avg_time|$avg_compile_time|$opt|$march_desc|$mtune_desc|$opt_flags|$size|[$runs_detail]" > "$result_file"
+                            fi
+                            
+                            # Cleanup BOLT workspace if used
+                            if [ $bolt -eq 1 ]; then
+                                rm -rf "temp/bolt_workspace_$$_${combo_id}_"* 2>/dev/null
                             fi
                             
                             echo "Complete" > "$STATUS_DIR/$combo_id"
@@ -794,6 +1055,7 @@ for size in "${sizes[@]}"; do
             done
         done
     done
+done
 done
 
 # Wait for all jobs to complete
@@ -825,13 +1087,13 @@ for target_size in "${sizes[@]}"; do
     echo "### ${target_size^} Matrix ($(case $target_size in micro) echo "64x64";; small) echo "512x512";; medium) echo "1024x1024";; esac))"
     echo
     if [ "$use_extra_flags" = true ]; then
-        printf "| %-5s | %-8s | %-6s | %-10s | %-4s | %-15s | %-15s | %-20s | %-3s | %-15s |\n" "Rank" "GFLOPS" "Run" "Compile" "Opt" "-march" "-mtune" "Extra Flags" "PGO" "Individual Runs"
-        printf "|       |          | %-6s | %-10s |      |                 |                 |                      |     |                 |\n" "Time" "Time"
-        printf "|-------|----------|--------|------------|------|-----------------|-----------------|----------------------|-----|-----------------|\n"
+        printf "| %-5s | %-8s | %-6s | %-10s | %-4s | %-15s | %-15s | %-20s | %-3s | %-4s | %-15s |\n" "Rank" "GFLOPS" "Run" "Compile" "Opt" "-march" "-mtune" "Extra Flags" "PGO" "BOLT" "Individual Runs"
+        printf "|       |          | %-6s | %-10s |      |                 |                 |                      |     |      |                 |\n" "Time" "Time"
+        printf "|-------|----------|--------|------------|------|-----------------|-----------------|----------------------|-----|------|-----------------|\n"
     else
-        printf "| %-5s | %-8s | %-6s | %-10s | %-4s | %-15s | %-15s | %-3s | %-15s |\n" "Rank" "GFLOPS" "Run" "Compile" "Opt" "-march" "-mtune" "PGO" "Individual Runs"
-        printf "|       |          | %-6s | %-10s |      |                 |                |     |                 |\n" "Time" "Time"
-        printf "|-------|----------|--------|------------|------|-----------------|----------------|-----|-----------------|\n"
+        printf "| %-5s | %-8s | %-6s | %-10s | %-4s | %-15s | %-15s | %-3s | %-4s | %-15s |\n" "Rank" "GFLOPS" "Run" "Compile" "Opt" "-march" "-mtune" "PGO" "BOLT" "Individual Runs"
+        printf "|       |          | %-6s | %-10s |      |                 |                |     |      |                 |\n" "Time" "Time"
+        printf "|-------|----------|--------|------------|------|-----------------|----------------|-----|------|-----------------|\n"
     fi
     
     rank=1
@@ -853,11 +1115,11 @@ for target_size in "${sizes[@]}"; do
         
         if [ "$size" = "$target_size" ] && [ "$opt" = "O0" ] && [ "$march" = "none" ] && [ "$mtune" = "none" ] && [ "$extra_flags" = "" ]; then
             if [ "$use_extra_flags" = true ]; then
-                printf "\033[1m| %-5s | %-8s | %-6s | %-10s | %-4s | %-15s | %-15s | %-20s | %-3s | %-15s |\033[0m\n" "-1" "$gflops" "$time" "$compile_time" "-$opt" "None" "None" "None" "F" "$runs_detail"
-                printf "|-------|----------|--------|------------|------|-----------------|----------------|---------------------|-----|-----------------|\n"
+                printf "\033[1m| %-5s | %-8s | %-6s | %-10s | %-4s | %-15s | %-15s | %-20s | %-3s | %-4s | %-15s |\033[0m\n" "-1" "$gflops" "$time" "$compile_time" "-$opt" "None" "None" "None" "F" "F" "$runs_detail"
+                printf "|-------|----------|--------|------------|------|-----------------|-----------------|----------------------|-----|------|-----------------|\n"
             else
-                printf "\033[1m| %-5s | %-8s | %-6s | %-10s | %-4s | %-15s | %-15s | %-3s | %-15s |\033[0m\n" "-1" "$gflops" "$time" "$compile_time" "-$opt" "None" "None" "F" "$runs_detail"
-                printf "|-------|----------|--------|------------|------|-----------------|----------------|-----|-----------------|\n"
+                printf "\033[1m| %-5s | %-8s | %-6s | %-10s | %-4s | %-15s | %-15s | %-3s | %-4s | %-15s |\033[0m\n" "-1" "$gflops" "$time" "$compile_time" "-$opt" "None" "None" "F" "F" "$runs_detail"
+                printf "|-------|----------|--------|------------|------|-----------------|----------------|-----|------|-----------------|\n"
             fi
             break
         fi
@@ -914,6 +1176,12 @@ for target_size in "${sizes[@]}"; do
                 pgo_display="T"
             fi
             
+            # Detect BOLT usage
+            bolt_display="F"
+            if [[ "$extra_flags" == *"BOLT"* ]]; then
+                bolt_display="T"
+            fi
+            
             # Format extra flags for display
             if [ "$use_extra_flags" = true ]; then
                 extra_display=""
@@ -923,9 +1191,9 @@ for target_size in "${sizes[@]}"; do
                 extra_display=${extra_display%,}  # Remove trailing comma
                 [ -z "$extra_display" ] && extra_display="None"
                 
-                printf "\033[1m| %-5d | %-8s | %-6s | %-10s | %-4s | %-15s | %-15s | %-20s | %-3s | %-15s |\033[0m\n" "$rank" "$gflops" "$time" "$compile_time" "-$opt" "$march_flag" "$mtune_flag" "$extra_display" "$pgo_display" "$runs_detail"
+                printf "\033[1m| %-5d | %-8s | %-6s | %-10s | %-4s | %-15s | %-15s | %-20s | %-3s | %-4s | %-15s |\033[0m\n" "$rank" "$gflops" "$time" "$compile_time" "-$opt" "$march_flag" "$mtune_flag" "$extra_display" "$pgo_display" "$bolt_display" "$runs_detail"
             else
-                printf "\033[1m| %-5d | %-8s | %-6s | %-10s | %-4s | %-15s | %-15s | %-3s | %-15s |\033[0m\n" "$rank" "$gflops" "$time" "$compile_time" "-$opt" "$march_flag" "$mtune_flag" "$pgo_display" "$runs_detail"
+                printf "\033[1m| %-5d | %-8s | %-6s | %-10s | %-4s | %-15s | %-15s | %-3s | %-4s | %-15s |\033[0m\n" "$rank" "$gflops" "$time" "$compile_time" "-$opt" "$march_flag" "$mtune_flag" "$pgo_display" "$bolt_display" "$runs_detail"
             fi
             
             # Show GCC command line if verbose
@@ -943,9 +1211,9 @@ for target_size in "${sizes[@]}"; do
                 if [[ "$extra_flags" == *"funroll-loops"* ]]; then gcc_cmd="$gcc_cmd -funroll-loops"; fi
                 if [[ "$extra_flags" == *"PGO"* ]]; then gcc_cmd="$gcc_cmd -fprofile-generate/-fprofile-use"; fi
                 gcc_cmd="$gcc_cmd -Wall -o [binary] src/optimized_matrix.c -lm"
-                printf "|-------|----------|--------|------------|------|-----------------|----------------|-----|-----------------|\n"
+                printf "|-------|----------|--------|------------|------|-----------------|----------------|-----|------|-----------------|\n"
                 printf "|       | Command: %-88s |\n" "$gcc_cmd"
-                printf "|-------|----------|--------|------------|------|-----------------|----------------|-----|-----------------|\n"
+                printf "|-------|----------|--------|------------|------|-----------------|----------------|-----|------|-----------------|\n"
             fi
             
             ((rank++))
