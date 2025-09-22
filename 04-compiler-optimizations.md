@@ -369,80 +369,87 @@ Profile-Guided Optimization (PGO) is a compiler technique that uses real program
 To do this, the compiler first builds an instrumented binary that profiles how the program behaves during runtime.  The instrumented program is run, outputting profiling data, which is then fed back into a second compilation pass, enabling the compiler to optimize specifically for real-world execution scenarios. 
 
 
-# Step 4: Test optimized binary
-./build/neoverse-tutorial --test=pgo --size=medium
-```
-
-**PGO Benefits:**
-- Better branch prediction
-- Optimized function layout
-- Improved inlining decisions
-- Typical gain: 10-25% additional improvement
-
-### Context-Sensitive PGO (CSPGO)
-
-Advanced PGO that considers calling context:
+Testing this across all the matrix examples using only architecture-specific flags and optimization levels can provide significant performance improvements:
 
 ```bash
-# LLVM CSPGO (requires Clang)
-CFLAGS="-O3 -fprofile-generate -fcs-profile-generate"
-# ... collect profile data ...
-CFLAGS="-O3 -fprofile-use -fcs-profile-use"
+./scripts/04/test-all-combinations.sh --opt-levels 2,3 --sizes 1,2,3 --runs 3 --arch-flags
 ```
+yields:
+```output
+=== Key Insights ===
+
+**Micro Matrix (64x64) Performance:**
+-- Best: 510.0% performance **gain** over baseline using -O2, -march native, -mtune native, extra flags None
+-- Worst: 400.0% performance **gain** over baseline using -O3, -march native, -mtune None, extra flags None
+
+**Small Matrix (512x512) Performance:**
+-- Best: 290.0% performance **gain** over baseline using -O3, -march native, -mtune None, extra flags None
+-- Worst: 250.0% performance **gain** over baseline using -O2, -march native, -mtune native, extra flags None
+
+**Medium Matrix (1024x1024) Performance:**
+-- Best: 90.0% performance **gain** over baseline using -O3, -march native, -mtune native, extra flags None
+-- Worst: 90.0% performance **gain** over baseline using -O3, -march None, -mtune native, extra flags None
+```
+
+Adding PGO to the mix can optimize even further:
+
+```bash
+./scripts/04/test-all-combinations.sh --opt-levels 2,3 --sizes 1,2,3 --runs 3 --arch-flags --pgo
+```
+yields:
+```output
+=== Key Insights ===
+
+**Micro Matrix (64x64) Performance:**
+-- Best: 570.0% performance **gain** over baseline using -O2, -march None, -mtune None, extra flags PGO
+-- Worst: 370.0% performance **gain** over baseline using -O2, -march native, -mtune None, extra flags PGO
+
+**Small Matrix (512x512) Performance:**
+-- Best: 290.0% performance **gain** over baseline using -O3, -march native, -mtune None, extra flags None
+-- Worst: 250.0% performance **gain** over baseline using -O3, -march None, -mtune None, extra flags PGO
+
+**Medium Matrix (1024x1024) Performance:**
+-- Best: 110.0% performance **gain** over baseline using -O3, -march native, -mtune native, extra flags PGO
+-- Worst: 90.0% performance **gain** over baseline using -O2, -march None, -mtune None, extra flags None
+```
+
+PGO has the potential may provide additional performance improvements on top of existing optimizations in many cases.  It works best on larger, more complex applications where the compiler can make more informed decisions based on real-world execution data.
+
+
+
+
+
 
 ## LLVM BOLT Post-Link Optimizer
 
-BOLT optimizes binaries after linking using runtime profile data:
+BOLT optimizes binaries after linking using runtime profile data.
+
+NOTE:  To continue with this section, you will need to have `perf` and `llvm-bolt` [installed on your system](https://learn.arm.com/install-guides/bolt/).  If the directions to install the actual perf binary on AWS EC2 do not work for you in the install guide, try the following (assumes you are on kernel 6.14): 
 
 ```bash
-# Build optimized binary
-CFLAGS="-O3 -march=neoverse-n1"
-make
+# 1) Grab upstream v6.14 perf (works fine with your 6.14.0-1012-aws kernel)
+git clone https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git
+cd linux/tools/perf
+git checkout v6.14
 
-# Collect runtime profile with perf
-perf record -e cycles:u -j any,u -- ./build/neoverse-tutorial --size=medium
+# 2) Install deps (if you haven’t already)
+sudo apt-get install -y build-essential libelf-dev libdw-dev libdebuginfod-dev \
+  systemtap-sdt-dev libbpf-dev libslang2-dev libperl-dev llvm-dev \
+  liblzma-dev zlib1g-dev libzstd-dev libbabeltrace-dev libcapstone-dev \
+  libtraceevent-dev libtracefs-dev libunwind-dev libnuma-dev
 
-# Convert perf data for BOLT
-perf2bolt ./build/neoverse-tutorial -p perf.data -o tutorial.fdata
-
-# Apply BOLT optimizations
-llvm-bolt ./build/neoverse-tutorial -data=tutorial.fdata -reorder-blocks=ext-tsp \
-  -reorder-functions=hfsort -split-functions -split-all-cold \
-  -o ./build/neoverse-tutorial-bolt
-
-# Test BOLT-optimized binary
-./build/neoverse-tutorial-bolt --test=bolt --size=medium
+# 3) Build and install perf
+make -j"$(nproc)"
+sudo make install-bin   # installs 'perf' into /usr/local/bin
+sudo cp perf /usr/bin  # make sure it's in your PATH
 ```
 
 
 
 
 
-## Comprehensive Compiler Test Results
 
-Running all compiler optimizations on different matrix sizes:
 
-### Small Matrix (512x512) - Cache-Friendly
-
-| Optimization | Time (ms) | GFLOPS | Speedup | Notes |
-|--------------|-----------|--------|---------|-------|
-| Baseline (-O0) | 1,234 | 0.22 | 1.0x | |
-| -O3 | 387 | 0.70 | 3.2x | Basic optimization |
-| -O3 + arch flags | 298 | 0.91 | 4.1x | Neoverse-specific |
-| + LTO | 276 | 0.98 | 4.5x | Cross-module opts |
-| + PGO | 234 | 1.16 | 5.3x | Profile-guided |
-| + BOLT | 218 | 1.24 | 5.7x | Post-link opts |
-
-### Large Matrix (8192x8192) - Memory-Bound
-
-| Optimization | Time (sec) | GFLOPS | Speedup | Notes |
-|--------------|------------|--------|---------|-------|
-| Baseline (-O0) | 2,847 | 0.39 | 1.0x | |
-| -O3 | 1,234 | 0.90 | 2.3x | Basic optimization |
-| -O3 + arch flags | 1,089 | 1.02 | 2.6x | Better memory ops |
-| + LTO | 1,034 | 1.07 | 2.8x | Inlined memory funcs |
-| + PGO | 967 | 1.15 | 2.9x | Optimized access patterns |
-| + BOLT | 923 | 1.20 | 3.1x | Better code layout |
 
 ## Implementation Difficulty vs. Performance Gain
 
